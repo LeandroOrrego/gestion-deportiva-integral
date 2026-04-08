@@ -1,0 +1,75 @@
+
+> gestion-deportiva-integral@0.1.0 build
+> next build
+
+▲ Next.js 16.1.4 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 2 errors:
+./lib/supabase/server.ts:2:1
+Ecmascript file had an error
+[0m [90m 1 |[39m [36mimport[39m { createServerClient } [36mfrom[39m [32m'@supabase/ssr'[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mimport[39m { cookies } [36mfrom[39m [32m'next/headers'[39m
+ [90m   |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m [36mexport[39m [36masync[39m [36mfunction[39m createClient() {
+ [90m 5 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[0m
+
+You're importing a component that needs "next/headers". That only works in a Server Component which is not supported in the pages/ directory. Read more: https://nextjs.org/docs/app/building-your-application/rendering/server-components
+
+
+
+Import traces:
+  App Route:
+    ./lib/supabase/server.ts
+    ./app/api/debug/balance/route.ts
+
+  Server Component:
+    ./lib/supabase/server.ts
+    ./app/(dashboard)/dashboard/page.tsx
+
+  Client Component Browser:
+    ./lib/supabase/server.ts [Client Component Browser]
+    ./lib/queries/transactions.ts [Client Component Browser]
+    ./app/(dashboard)/transacciones/page.tsx [Client Component Browser]
+    ./app/(dashboard)/transacciones/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./lib/supabase/server.ts [Client Component SSR]
+    ./lib/queries/transactions.ts [Client Component SSR]
+    ./app/(dashboard)/transacciones/page.tsx [Client Component SSR]
+    ./app/(dashboard)/transacciones/page.tsx [Server Component]
+
+
+./app/(dashboard)/transacciones/page.tsx:20:1
+Module not found: Can't resolve '@/hooks/use-toast'
+[0m [90m 18 |[39m [36mimport[39m { [33mTransactionForm[39m } [36mfrom[39m [32m"@/components/transactions/TransactionForm"[39m[33m;[39m
+ [90m 19 |[39m [36mimport[39m { [33mTransactionStats[39m } [36mfrom[39m [32m"@/components/transactions/TransactionStats"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 20 |[39m [36mimport[39m { useToast } [36mfrom[39m [32m"@/hooks/use-toast"[39m[33m;[39m
+ [90m    |[39m [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 21 |[39m
+ [90m 22 |[39m [36mexport[39m [36mdefault[39m [36mfunction[39m [33mTransactionsPage[39m() {
+ [90m 23 |[39m     [36mconst[39m { profile } [33m=[39m useAuth()[33m;[39m[0m
+
+Import map: aliased to relative './hooks/use-toast' inside of [project]/
+
+
+Import traces:
+  Client Component Browser:
+    ./app/(dashboard)/transacciones/page.tsx [Client Component Browser]
+    ./app/(dashboard)/transacciones/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./app/(dashboard)/transacciones/page.tsx [Client Component SSR]
+    ./app/(dashboard)/transacciones/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (./lib/supabase/server.ts:2:1)
+    at <unknown> (./app/(dashboard)/transacciones/page.tsx:20:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
