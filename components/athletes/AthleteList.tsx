@@ -15,7 +15,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
     Table,
     TableBody,
@@ -40,75 +39,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { AtletaConAcuerdo } from "@/lib/queries/atletas";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
-
-type Plantel = "Primera" | "Sub-19" | "Sub-16" | "Sub-15";
+type Plantel = string;
 type DocStatus = "ok" | "falta";
 
-interface Athlete {
-    id: string;
-    nombre: string;
-    ci: string;
-    plantel: Plantel;
-    posicion: string;
-    doc_pase: DocStatus;
-    doc_ficha: DocStatus;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Mock Data
-// ─────────────────────────────────────────────────────────────────────────────
-
-const mockAthletes: Athlete[] = [
-    {
-        id: "1",
-        nombre: "Sandro Jara",
-        ci: "4.521.890",
-        plantel: "Primera",
-        posicion: "Delantero",
-        doc_pase: "ok",
-        doc_ficha: "ok",
-    },
-    {
-        id: "2",
-        nombre: "César Días Correa",
-        ci: "5.112.340",
-        plantel: "Primera",
-        posicion: "Mediocampista",
-        doc_pase: "ok",
-        doc_ficha: "falta",
-    },
-    {
-        id: "3",
-        nombre: "Rodrigo Villalba",
-        ci: "3.887.221",
-        plantel: "Sub-19",
-        posicion: "Defensor Central",
-        doc_pase: "falta",
-        doc_ficha: "falta",
-    },
-    {
-        id: "4",
-        nombre: "Kevin Ramírez",
-        ci: "6.034.512",
-        plantel: "Sub-16",
-        posicion: "Arquero",
-        doc_pase: "ok",
-        doc_ficha: "ok",
-    },
-    {
-        id: "5",
-        nombre: "Arnaldo Esquivel",
-        ci: "4.765.003",
-        plantel: "Sub-19",
-        posicion: "Lateral Derecho",
-        doc_pase: "falta",
-        doc_ficha: "ok",
-    },
-];
+// Mock data removed — real data comes from Supabase via props
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
@@ -122,11 +58,14 @@ const PLANTEL_COLORS: Record<Plantel, string> = {
 };
 
 function PlantelBadge({ plantel }: { plantel: Plantel }) {
+    const colorClass =
+        PLANTEL_COLORS[plantel] ??
+        "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300";
     return (
         <span
             className={cn(
                 "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                PLANTEL_COLORS[plantel]
+                colorClass
             )}
         >
             {plantel}
@@ -170,31 +109,34 @@ function EmptyState({ query }: { query: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface AthleteListProps {
+    athletes: AtletaConAcuerdo[];
     onRegister?: () => void;
-    onEdit?: (athlete: Athlete) => void;
-    onViewContract?: (athlete: Athlete) => void;
+    onEdit?: (athlete: AtletaConAcuerdo) => void;
+    onViewContract?: (athlete: AtletaConAcuerdo) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function AthleteList({ onRegister, onEdit, onViewContract }: AthleteListProps) {
+export function AthleteList({ athletes, onRegister, onEdit, onViewContract }: AthleteListProps) {
     const [plantelFilter, setPlantelFilter] = useState<string>("todos");
     const [searchQuery, setSearchQuery] = useState("");
 
     const filtered = useMemo(() => {
-        return mockAthletes.filter((a) => {
+        return athletes.filter((a) => {
+            const plantel = a.categorias?.nombre ?? "";
             const matchesPlantel =
-                plantelFilter === "todos" || a.plantel === plantelFilter;
+                plantelFilter === "todos" || plantel === plantelFilter;
             const q = searchQuery.toLowerCase();
+            const ci = a.documento ?? "";
             const matchesSearch =
                 !q ||
-                a.nombre.toLowerCase().includes(q) ||
-                a.ci.replace(/\./g, "").includes(q.replace(/\./g, ""));
+                a.nombre_completo.toLowerCase().includes(q) ||
+                ci.replace(/\./g, "").includes(q.replace(/\./g, ""));
             return matchesPlantel && matchesSearch;
         });
-    }, [plantelFilter, searchQuery]);
+    }, [athletes, plantelFilter, searchQuery]);
 
     return (
         <div className="space-y-5">
@@ -205,7 +147,7 @@ export function AthleteList({ onRegister, onEdit, onViewContract }: AthleteListP
                         Plantel de Atletas
                     </h2>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                        {mockAthletes.length} jugadores registrados en el club
+                        {athletes.length} jugadores registrados en el club
                     </p>
                 </div>
                 <Button
@@ -298,38 +240,39 @@ export function AthleteList({ onRegister, onEdit, onViewContract }: AthleteListP
                                     {/* Nombre */}
                                     <TableCell className="pl-5 font-medium">
                                         <div className="flex items-center gap-2.5">
-                                            {/* Avatar placeholder */}
                                             <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0 select-none">
-                                                {athlete.nombre
+                                                {athlete.nombre_completo
                                                     .split(" ")
-                                                    .map((n) => n[0])
+                                                    .map((n: string) => n[0])
                                                     .slice(0, 2)
                                                     .join("")}
                                             </div>
-                                            <span>{athlete.nombre}</span>
+                                            <span>{athlete.nombre_completo}</span>
                                         </div>
                                     </TableCell>
 
                                     {/* CI */}
                                     <TableCell className="text-muted-foreground font-mono text-sm">
-                                        {athlete.ci}
+                                        {athlete.documento ?? "—"}
                                     </TableCell>
 
                                     {/* Plantel */}
                                     <TableCell>
-                                        <PlantelBadge plantel={athlete.plantel} />
+                                        <PlantelBadge plantel={athlete.categorias?.nombre ?? "Sin plantel"} />
                                     </TableCell>
 
                                     {/* Posición */}
                                     <TableCell className="text-sm text-muted-foreground">
-                                        {athlete.posicion}
+                                        {athlete.posicion ?? "—"}
                                     </TableCell>
 
-                                    {/* Documentación */}
+                                    {/* Acuerdo 2026 */}
                                     <TableCell>
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                            <DocBadge label="Pase" status={athlete.doc_pase} />
-                                            <DocBadge label="Ficha" status={athlete.doc_ficha} />
+                                            <DocBadge
+                                                label="Acuerdo 2026"
+                                                status={athlete.acuerdo_2026 ? "ok" : "falta"}
+                                            />
                                         </div>
                                     </TableCell>
 
@@ -349,7 +292,7 @@ export function AthleteList({ onRegister, onEdit, onViewContract }: AthleteListP
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-44">
                                                 <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
-                                                    {athlete.nombre.split(" ")[0]}
+                                                    {athlete.nombre_completo.split(" ")[0]}
                                                 </DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem
@@ -379,7 +322,7 @@ export function AthleteList({ onRegister, onEdit, onViewContract }: AthleteListP
                 {filtered.length > 0 && (
                     <div className="flex items-center justify-between border-t px-5 py-2.5 text-xs text-muted-foreground bg-muted/10">
                         <span>
-                            Mostrando {filtered.length} de {mockAthletes.length} atletas
+                            Mostrando {filtered.length} de {athletes.length} atletas
                         </span>
                         {plantelFilter !== "todos" && (
                             <span className="font-medium">{plantelFilter}</span>

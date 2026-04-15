@@ -69,6 +69,8 @@ interface AthleteAgreementFormProps {
     initialData?: Partial<AgreementFormValues>;
     athleteName?: string;
     onSubmit?: (data: AgreementFormValues) => Promise<void>;
+    /** Optional external pending state from useTransition */
+    isPending?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,6 +201,7 @@ export function AthleteAgreementForm({
     initialData,
     athleteName,
     onSubmit,
+    isPending: externalPending,
 }: AthleteAgreementFormProps) {
     const [isPremioFijo, setIsPremioFijo] = useState(false);
 
@@ -389,10 +392,10 @@ export function AthleteAgreementForm({
                 <Button
                     type="submit"
                     size="lg"
-                    disabled={form.formState.isSubmitting}
+                    disabled={form.formState.isSubmitting || externalPending}
                     className="w-full h-12 text-base font-semibold gap-2"
                 >
-                    {form.formState.isSubmitting ? (
+                    {(form.formState.isSubmitting || externalPending) ? (
                         <>
                             <span className="animate-spin h-4 w-4 rounded-full border-2 border-white border-t-transparent" />
                             Guardando acuerdo...
