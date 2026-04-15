@@ -47,6 +47,19 @@ export type AgreementFormData = {
     premio_campeonato: number;
 };
 
+export type MovimientoTipo = "DEBE" | "HABER";
+
+export type MovimientoAtleta = {
+    id: string;
+    atleta_id: string;
+    fecha: string;
+    concepto: string;
+    tipo: MovimientoTipo;
+    monto: number;
+    organization_id: string;
+    created_at: string;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Queries
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,6 +151,58 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
     });
 
     return athletes;
+}
+
+/**
+ * Fetches basic profile info for a single athlete.
+ */
+export async function getAthleteProfile(id: string): Promise<AtletaConAcuerdo | null> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("atletas")
+        .select(`
+            id,
+            nombre_completo,
+            documento,
+            posicion,
+            status,
+            category_id,
+            categorias ( id, nombre )
+        `)
+        .eq("id", id)
+        .single();
+
+    if (error) {
+        console.error("[getAthleteProfile] Error:", error.message);
+        return null;
+    }
+
+    return {
+        ...data,
+        acuerdo_2026: null, // Basic profile doesn't need agreement for now, or fetch separately if needed
+    } as AtletaConAcuerdo;
+}
+
+/**
+ * Fetches all financial movements for an athlete, ordered by date and creation time descending.
+ */
+export async function getMovimientos(atletaId: string): Promise<MovimientoAtleta[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("atleta_movimientos")
+        .select("*")
+        .eq("atleta_id", atletaId)
+        .order("fecha", { ascending: false })
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("[getMovimientos] Error:", error.message);
+        return [];
+    }
+
+    return data || [];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,5 +300,55 @@ export async function saveAthleteAgreement(
     }
 
     revalidatePath("/atletas");
+    return { error: null };
+}
+
+/**
+ * Records a new financial movement for an athlete.
+ * Returns { error: string | null }.
+ */
+export async function saveMovimiento(payload: {
+    atleta_id: string;
+    fecha: string;
+    tipo: MovimientoTipo;
+    concepto: string;
+    monto: number;
+}): Promise<{ error: string | null }> {
+    "use server";
+
+    const supabase = await createClient();
+
+    // 1. Get current user & organization
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    const { data: perfil } = await supabase
+        .from("perfiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+    if (!perfil?.organization_id) return { error: "Organización no encontrada" };
+
+    // 2. Insert movement
+    const { error } = await supabase
+        .from("atleta_movimientos")
+        .insert({
+            organization_id: perfil.organization_id,
+            atleta_id: payload.atleta_id,
+            fecha: payload.fecha,
+            tipo: payload.tipo,
+            concepto: payload.concepto,
+            monto: Math.round(Number(payload.monto) || 0),
+        });
+
+    if (error) {
+        console.error("[saveMovimiento] Error:", error.message);
+        return { error: error.message };
+    }
+
+    // 3. Revalidate the profile page
+    revalidatePath(`/atletas/${payload.atleta_id}`);
+    
     return { error: null };
 }

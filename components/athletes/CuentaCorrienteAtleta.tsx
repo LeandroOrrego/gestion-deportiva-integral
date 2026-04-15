@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -15,6 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 import {
     Table,
     TableBody,
@@ -39,50 +40,12 @@ import { cn } from "@/lib/utils";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type MovimientoTipo = "DEBE" | "HABER";
+import { MovimientoAtleta, MovimientoTipo } from "@/lib/queries/atletas";
+import { useToast } from "@/hooks/use-toast";
 
-interface Movimiento {
-    id: string;
-    fecha: string;       // YYYY-MM-DD
-    concepto: string;
-    tipo: MovimientoTipo;
-    monto: number;
-}
+// (Types moved to lib/queries/atletas.ts)
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mock Data
-// ─────────────────────────────────────────────────────────────────────────────
-
-const mockMovimientos: Movimiento[] = [
-    {
-        id: "1",
-        fecha: "2026-04-01",
-        concepto: "Premio vs Olimpia (Victoria)",
-        tipo: "HABER",
-        monto: 1100000,
-    },
-    {
-        id: "2",
-        fecha: "2026-04-05",
-        concepto: "Vale de Combustible",
-        tipo: "DEBE",
-        monto: 200000,
-    },
-    {
-        id: "3",
-        fecha: "2026-04-08",
-        concepto: "Premio vs Sportivo (Empate)",
-        tipo: "HABER",
-        monto: 900000,
-    },
-    {
-        id: "4",
-        fecha: "2026-04-12",
-        concepto: "Adelanto semanal",
-        tipo: "DEBE",
-        monto: 500000,
-    },
-];
+// Mock data removed. Using real data from Supabase.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -161,10 +124,12 @@ interface MovimientoDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     tipo: MovimientoTipo;
-    onSave: (mov: Omit<Movimiento, "id">) => void;
+    atletaId: string;
 }
 
-function MovimientoDialog({ open, onOpenChange, tipo, onSave }: MovimientoDialogProps) {
+function MovimientoDialog({ open, onOpenChange, tipo, atletaId }: MovimientoDialogProps) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
     const [fecha, setFecha] = useState(todayISO());
     const [concepto, setConcepto] = useState("");
     const [montoDisplay, setMontoDisplay] = useState("");
@@ -183,13 +148,34 @@ function MovimientoDialog({ open, onOpenChange, tipo, onSave }: MovimientoDialog
             return;
         }
 
-        onSave({ fecha, concepto: concepto.trim(), tipo, monto });
-        // reset
-        setFecha(todayISO());
-        setConcepto("");
-        setMontoDisplay("");
-        setError("");
-        onOpenChange(false);
+        startTransition(async () => {
+            const { error } = await saveMovimiento({
+                atleta_id: atletaId,
+                fecha,
+                tipo,
+                concepto: concepto.trim(),
+                monto,
+            });
+
+            if (error) {
+                toast({
+                    title: "Error al registrar",
+                    description: error,
+                    variant: "destructive",
+                });
+            } else {
+                toast({
+                    title: "Movimiento registrado",
+                    description: "El movimiento se ha guardado correctamente.",
+                });
+                // reset
+                setFecha(todayISO());
+                setConcepto("");
+                setMontoDisplay("");
+                setError("");
+                onOpenChange(false);
+            }
+        });
     };
 
     return (
@@ -300,13 +286,19 @@ function MovimientoDialog({ open, onOpenChange, tipo, onSave }: MovimientoDialog
                     <Button
                         size="sm"
                         onClick={handleSave}
+                        disabled={isPending}
                         className={cn(
                             isDebe
                                 ? "bg-red-600 hover:bg-red-700 text-white"
                                 : "bg-emerald-600 hover:bg-emerald-700 text-white"
                         )}
                     >
-                        {isDebe ? (
+                        {isPending ? (
+                            <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                Procesando...
+                            </>
+                        ) : isDebe ? (
                             <>
                                 <MinusCircle className="h-3.5 w-3.5 mr-1.5" />
                                 Registrar Pago
@@ -329,8 +321,9 @@ function MovimientoDialog({ open, onOpenChange, tipo, onSave }: MovimientoDialog
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CuentaCorrienteAtletaProps {
-    atletaId?: string;
-    atletaNombre?: string;
+    atletaId: string;
+    atletaNombre: string;
+    movimientos: MovimientoAtleta[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -339,25 +332,15 @@ interface CuentaCorrienteAtletaProps {
 
 export function CuentaCorrienteAtleta({
     atletaId,
-    atletaNombre = "Atleta",
+    atletaNombre,
+    movimientos,
 }: CuentaCorrienteAtletaProps) {
-    const [movimientos, setMovimientos] = useState<Movimiento[]>(mockMovimientos);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogTipo, setDialogTipo] = useState<MovimientoTipo>("HABER");
 
     const openDialog = (tipo: MovimientoTipo) => {
         setDialogTipo(tipo);
         setDialogOpen(true);
-    };
-
-    const handleSave = (mov: Omit<Movimiento, "id">) => {
-        const newMov: Movimiento = {
-            ...mov,
-            id: crypto.randomUUID(),
-        };
-        setMovimientos((prev) =>
-            [...prev, newMov].sort((a, b) => a.fecha.localeCompare(b.fecha))
-        );
     };
 
     // ── Computed values ───────────────────────────────────────────────────────
@@ -606,7 +589,7 @@ export function CuentaCorrienteAtleta({
                 open={dialogOpen}
                 onOpenChange={setDialogOpen}
                 tipo={dialogTipo}
-                onSave={handleSave}
+                atletaId={atletaId}
             />
         </div>
     );
