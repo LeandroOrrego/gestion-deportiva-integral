@@ -1,4 +1,5 @@
 import { getAthletes } from "@/lib/queries/atletas";
+import { getPlanteles } from "@/lib/queries/premios";
 import AtletasClient from "./AtletasClient";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6,7 +7,10 @@ import AtletasClient from "./AtletasClient";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default async function AtletasPage() {
-    const athletes = await getAthletes();
+    const [athletes, categories] = await Promise.all([
+        getAthletes(),
+        getPlanteles(),
+    ]);
 
-    return <AtletasClient athletes={athletes} />;
+    return <AtletasClient athletes={athletes} categories={categories} />;
 }

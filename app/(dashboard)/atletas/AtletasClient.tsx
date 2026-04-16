@@ -23,13 +23,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface AtletasClientProps {
     athletes: AtletaConAcuerdo[];
+    categories: { id: string; nombre: string }[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Client Shell
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function AtletasClient({ athletes }: AtletasClientProps) {
+export default function AtletasClient({ athletes, categories }: AtletasClientProps) {
     const { toast } = useToast();
     const [isPending, startTransition] = useTransition();
 
@@ -59,15 +60,14 @@ export default function AtletasClient({ athletes }: AtletasClientProps) {
     };
 
     const handleAgreementSubmit = async (formData: any) => {
-        if (!selectedAthlete) return;
-
         startTransition(async () => {
-            const existingId = selectedAthlete.acuerdo_2026?.id;
+            const existingAgreementId = selectedAthlete?.acuerdo_2026?.id;
+            const targetAtletaId = selectedAthlete?.id;
 
             const result = await saveAthleteAgreement(
-                selectedAthlete.id,
                 formData,
-                existingId
+                targetAtletaId,
+                existingAgreementId
             );
 
             if (result.error) {
@@ -105,21 +105,27 @@ export default function AtletasClient({ athletes }: AtletasClientProps) {
 
     // ── Initial form data (pre-fill from existing agreement) ─────────────────
 
-    const initialAgreementData = selectedAthlete?.acuerdo_2026
+    const initialAgreementData = selectedAthlete
         ? {
-              costo_pase: selectedAthlete.acuerdo_2026.costo_pase ?? 0,
-              prima_inicial: selectedAthlete.acuerdo_2026.prima_inicial ?? 0,
-              viatico_practica: selectedAthlete.acuerdo_2026.viatico_practica ?? 0,
+              // Basic Data
+              nombre_completo: selectedAthlete.nombre_completo || "",
+              documento: selectedAthlete.documento || "",
+              category_id: selectedAthlete.category_id || "",
+              
+              // Financial Data
+              costo_pase: selectedAthlete.acuerdo_2026?.costo_pase ?? 0,
+              prima_inicial: selectedAthlete.acuerdo_2026?.prima_inicial ?? 0,
+              viatico_practica: selectedAthlete.acuerdo_2026?.viatico_practica ?? 0,
               viatico_partido:
-                  selectedAthlete.acuerdo_2026.viatico_partido ??
-                  selectedAthlete.acuerdo_2026.viatico_base ??
+                  selectedAthlete.acuerdo_2026?.viatico_partido ??
+                  selectedAthlete.acuerdo_2026?.viatico_base ??
                   0,
-              premio_victoria: selectedAthlete.acuerdo_2026.premio_victoria ?? 0,
-              premio_empate: selectedAthlete.acuerdo_2026.premio_empate ?? 0,
-              premio_derrota: selectedAthlete.acuerdo_2026.premio_derrota ?? 0,
-              premio_fijo_resultado: selectedAthlete.acuerdo_2026.premio_fijo_resultado ?? 0,
-              premio_clasificacion: selectedAthlete.acuerdo_2026.premio_clasificacion ?? 0,
-              premio_campeonato: selectedAthlete.acuerdo_2026.premio_campeonato ?? 0,
+              premio_victoria: selectedAthlete.acuerdo_2026?.premio_victoria ?? 0,
+              premio_empate: selectedAthlete.acuerdo_2026?.premio_empate ?? 0,
+              premio_derrota: selectedAthlete.acuerdo_2026?.premio_derrota ?? 0,
+              premio_fijo_resultado: selectedAthlete.acuerdo_2026?.premio_fijo_resultado ?? 0,
+              premio_clasificacion: selectedAthlete.acuerdo_2026?.premio_clasificacion ?? 0,
+              premio_campeonato: selectedAthlete.acuerdo_2026?.premio_campeonato ?? 0,
           }
         : undefined;
 
@@ -157,6 +163,7 @@ export default function AtletasClient({ athletes }: AtletasClientProps) {
                             <AthleteAgreementForm
                                 athleteName={selectedAthlete?.nombre_completo}
                                 initialData={initialAgreementData}
+                                categories={categories}
                                 onSubmit={handleAgreementSubmit}
                                 isPending={isPending}
                             />

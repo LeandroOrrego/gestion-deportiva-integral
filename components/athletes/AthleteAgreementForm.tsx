@@ -14,6 +14,7 @@ import {
     ToggleRight,
     BadgePercent,
     Handshake,
+    User,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,13 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,6 +48,11 @@ import { Separator } from "@/components/ui/separator";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const agreementSchema = z.object({
+    // Card 0 - Datos Personales
+    nombre_completo: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+    documento: z.string().min(5, "El documento es obligatorio"),
+    category_id: z.string().min(1, "La categoría es obligatoria"),
+
     // Card 1 - Costos de Fichaje
     costo_pase: z.coerce.number().min(0).default(0),
     prima_inicial: z.coerce.number().min(0).default(0),
@@ -68,6 +81,7 @@ type AgreementFormValues = z.infer<typeof agreementSchema>;
 interface AthleteAgreementFormProps {
     initialData?: Partial<AgreementFormValues>;
     athleteName?: string;
+    categories: { id: string; nombre: string }[];
     onSubmit?: (data: AgreementFormValues) => Promise<void>;
     /** Optional external pending state from useTransition */
     isPending?: boolean;
@@ -200,6 +214,7 @@ function SectionCard({
 export function AthleteAgreementForm({
     initialData,
     athleteName,
+    categories,
     onSubmit,
     isPending: externalPending,
 }: AthleteAgreementFormProps) {
@@ -208,6 +223,9 @@ export function AthleteAgreementForm({
     const form = useForm<AgreementFormValues>({
         resolver: zodResolver(agreementSchema),
         defaultValues: {
+            nombre_completo: "",
+            documento: "",
+            category_id: "",
             costo_pase: 0,
             prima_inicial: 0,
             viatico_practica: 0,
@@ -238,18 +256,70 @@ export function AthleteAgreementForm({
                 onSubmit={form.handleSubmit(handleFormSubmit)}
                 className="space-y-5"
             >
-                {/* Header */}
-                {athleteName && (
-                    <div className="flex items-center gap-2 mb-2">
-                        <Handshake className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                            <h2 className="text-lg font-bold leading-none">{athleteName}</h2>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Condiciones financieras del acuerdo vigente
-                            </p>
-                        </div>
+                {/* ── Card 0: Datos Personales ───────────────────────────── */}
+                <SectionCard
+                    icon={User}
+                    title="Datos Personales"
+                    description="Información básica del jugador y su nivel de plantel"
+                    accent="brand"
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="nombre_completo"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nombre Completo</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ej: Juan Pérez" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="documento"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nro. de Documento</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ej: 1.234.567" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </div>
-                )}
+                    <FormField
+                        control={form.control}
+                        name="category_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Plantel / Categoría</FormLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    value={field.value}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccioná un plantel" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {categories.map((cat) => (
+                                            <SelectItem key={cat.id} value={cat.id}>
+                                                {cat.nombre}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </SectionCard>
 
                 {/* ── Card 1: Costos de Fichaje ─────────────────────────── */}
                 <SectionCard

@@ -35,6 +35,12 @@ export type AtletaConAcuerdo = {
 };
 
 export type AgreementFormData = {
+    // Basic Data
+    nombre_completo: string;
+    documento: string;
+    category_id: string;
+    
+    // Financial Data
     costo_pase: number;
     prima_inicial: number;
     viatico_practica: number;
@@ -210,19 +216,21 @@ export async function getMovimientos(atletaId: string): Promise<MovimientoAtleta
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Upserts an athlete_agreement record for a given athlete.
- * Returns { error: string | null }.
+ * Records both athlete personal data and their agreement.
+ * Performs a two-step process:
+ * 1. UPSERT into 'atletas' table.
+ * 2. UPSERT into 'athlete_agreements' table using the athlete's ID.
  */
 export async function saveAthleteAgreement(
-    atletaId: string,
     formData: AgreementFormData,
+    atletaId?: string,
     existingAgreementId?: string
 ): Promise<{ error: string | null }> {
     "use server";
 
     const supabase = await createClient();
 
-    // Get org_id
+    // 1. Get organization context
     const {
         data: { user },
     } = await supabase.auth.getUser();
@@ -237,12 +245,56 @@ export async function saveAthleteAgreement(
 
     if (!perfil?.organization_id) return { error: "Organización no encontrada" };
 
-    const payload = {
-        organization_id: perfil.organization_id,
-        atleta_id: atletaId,
+    const orgId = perfil.organization_id;
+
+    // 2. Step One: UPSERT Athlete (table: atletas)
+    const athletePayload = {
+        organization_id: orgId,
+        nombre_completo: formData.nombre_completo,
+        documento: formData.documento,
+        category_id: formData.category_id,
+        updated_at: new Date().toISOString(),
+        active: true,
+    };
+
+    let targetAtletaId = atletaId;
+
+    if (targetAtletaId) {
+        // Update existing athlete
+        const { error: athleteError } = await supabase
+            .from("atletas")
+            .update(athletePayload)
+            .eq("id", targetAtletaId);
+            
+        if (athleteError) {
+            console.error("[saveAthleteAgreement] Athlete Update Error:", athleteError.message);
+            return { error: `Error al actualizar datos básicos: ${athleteError.message}` };
+        }
+    } else {
+        // Insert new athlete
+        const { data: newAthlete, error: athleteError } = await supabase
+            .from("atletas")
+            .insert({
+                ...athletePayload,
+                created_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+
+        if (athleteError) {
+            console.error("[saveAthleteAgreement] Athlete Insert Error:", athleteError.message);
+            return { error: `Error al crear jugador: ${athleteError.message}` };
+        }
+        targetAtletaId = newAthlete.id;
+    }
+
+    // 3. Step Two: UPSERT Agreement (table: athlete_agreements)
+    // Map all amounts — coerce to integer
+    const agreementPayload = {
+        organization_id: orgId,
+        atleta_id: targetAtletaId,
         temporada: "2026",
         vigente_desde: new Date().toISOString().split("T")[0],
-        // Map all amounts — coerce to integer
         costo_pase: Math.round(Number(formData.costo_pase) || 0),
         prima_inicial: Math.round(Number(formData.prima_inicial) || 0),
         viatico_practica: Math.round(Number(formData.viatico_practica) || 0),
@@ -250,55 +302,40 @@ export async function saveAthleteAgreement(
         premio_victoria: Math.round(Number(formData.premio_victoria) || 0),
         premio_empate: Math.round(Number(formData.premio_empate) || 0),
         premio_derrota: Math.round(Number(formData.premio_derrota) || 0),
-        // viatico_base maps to viatico_partido (backward-compat column)
+        // Backward-compat column
         viatico_base: Math.round(Number(formData.viatico_partido) || 0),
-        // Extra columns — only write if they exist in DB
-        // These fields require a migration if not present yet.
-        // Comment them out if the migration hasn't been applied.
-        costo_pase_raw: Math.round(Number(formData.costo_pase) || 0),
-        prima_inicial_raw: Math.round(Number(formData.prima_inicial) || 0),
+        // Extra columns
         premio_fijo_resultado: Math.round(Number(formData.premio_fijo_resultado) || 0),
         premio_clasificacion: Math.round(Number(formData.premio_clasificacion) || 0),
         premio_campeonato: Math.round(Number(formData.premio_campeonato) || 0),
     };
 
-    // Strip unknown columns – only keep what the current schema has
-    const safePayload: Record<string, any> = {
-        organization_id: payload.organization_id,
-        atleta_id: payload.atleta_id,
-        temporada: payload.temporada,
-        vigente_desde: payload.vigente_desde,
-        viatico_base: payload.viatico_base,
-        premio_victoria: payload.premio_victoria,
-        premio_empate: payload.premio_empate,
-        premio_derrota: payload.premio_derrota,
-    };
-
-    let error;
+    let agreementError;
 
     if (existingAgreementId) {
-        // UPDATE existing
+        // UPDATE existing agreement
         const result = await supabase
             .from("athlete_agreements")
             .update({
-                ...safePayload,
+                ...agreementPayload,
                 updated_at: new Date().toISOString(),
             })
             .eq("id", existingAgreementId);
-        error = result.error;
+        agreementError = result.error;
     } else {
-        // INSERT new
+        // INSERT new agreement
         const result = await supabase
             .from("athlete_agreements")
-            .insert(safePayload);
-        error = result.error;
+            .insert(agreementPayload);
+        agreementError = result.error;
     }
 
-    if (error) {
-        console.error("[saveAthleteAgreement] Error:", error.message);
-        return { error: error.message };
+    if (agreementError) {
+        console.error("[saveAthleteAgreement] Agreement Error:", agreementError.message);
+        return { error: `Atleta guardado, pero hubo un error en el acuerdo: ${agreementError.message}` };
     }
 
+    // 4. Finalize
     revalidatePath("/atletas");
     return { error: null };
 }
