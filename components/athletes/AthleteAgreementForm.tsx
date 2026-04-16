@@ -50,7 +50,7 @@ import { Separator } from "@/components/ui/separator";
 const agreementSchema = z.object({
     // Card 0 - Datos Personales
     nombre_completo: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-    documento: z.string().min(5, "El documento es obligatorio"),
+    documento: z.string().optional(),
     category_id: z.string().min(1, "La categoría es obligatoria"),
 
     // Card 1 - Costos de Fichaje
@@ -223,20 +223,20 @@ export function AthleteAgreementForm({
     const form = useForm<AgreementFormValues>({
         resolver: zodResolver(agreementSchema),
         defaultValues: {
-            nombre_completo: "",
-            documento: "",
-            category_id: "",
-            costo_pase: 0,
-            prima_inicial: 0,
-            viatico_practica: 0,
-            viatico_partido: 0,
-            premio_victoria: 0,
-            premio_empate: 0,
-            premio_derrota: 0,
-            premio_fijo_resultado: 0,
-            premio_clasificacion: 0,
-            premio_campeonato: 0,
-            ...initialData,
+            // Uncontrolled input fix: initialData can't set fields to undefined
+            nombre_completo: initialData?.nombre_completo || "",
+            documento: initialData?.documento || "",
+            category_id: initialData?.category_id || "",
+            costo_pase: initialData?.costo_pase ?? 0,
+            prima_inicial: initialData?.prima_inicial ?? 0,
+            viatico_practica: initialData?.viatico_practica ?? 0,
+            viatico_partido: initialData?.viatico_partido ?? 0,
+            premio_victoria: initialData?.premio_victoria ?? 0,
+            premio_empate: initialData?.premio_empate ?? 0,
+            premio_derrota: initialData?.premio_derrota ?? 0,
+            premio_fijo_resultado: initialData?.premio_fijo_resultado ?? 0,
+            premio_clasificacion: initialData?.premio_clasificacion ?? 0,
+            premio_campeonato: initialData?.premio_campeonato ?? 0,
         },
     });
 

@@ -251,7 +251,7 @@ export async function saveAthleteAgreement(
     const athletePayload = {
         organization_id: orgId,
         nombre_completo: formData.nombre_completo,
-        documento: formData.documento,
+        documento: formData.documento?.trim() || null, // Guardar null si est\u00e1 vac\u00edo
         category_id: formData.category_id,
         updated_at: new Date().toISOString(),
         active: true,
