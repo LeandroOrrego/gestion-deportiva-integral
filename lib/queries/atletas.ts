@@ -47,7 +47,7 @@ export type AgreementFormData = {
     documento?: string;
     telefono?: string;
     category_id: string;
-    
+
     // Financial Data
     costo_pase: number;
     prima_inicial: number;
@@ -171,8 +171,8 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
         const agreements: any[] = Array.isArray(row.athlete_agreements)
             ? row.athlete_agreements
             : row.athlete_agreements
-            ? [row.athlete_agreements]
-            : [];
+                ? [row.athlete_agreements]
+                : [];
 
         const acuerdo2026 =
             agreements.find((a) => a.temporada === "2026") ?? null;
@@ -252,8 +252,8 @@ export async function getAthleteProfile(id: string): Promise<AtletaConAcuerdo | 
     const agreements: any[] = Array.isArray(data.athlete_agreements)
         ? data.athlete_agreements
         : data.athlete_agreements
-        ? [data.athlete_agreements]
-        : [];
+            ? [data.athlete_agreements]
+            : [];
 
     const acuerdo2026 = agreements.find((a) => a.temporada === "2026") ?? null;
 
@@ -345,7 +345,7 @@ export async function saveAthleteAgreement(
             .from("atletas")
             .update(athletePayload)
             .eq("id", targetAtletaId);
-            
+
         if (athleteError) {
             console.error("[saveAthleteAgreement] Athlete Update Error:", athleteError.message);
             return { error: `Error al actualizar datos básicos: ${athleteError.message}` };
@@ -466,7 +466,7 @@ export async function saveMovimiento(payload: {
 
     // 3. Revalidate the profile page
     revalidatePath(`/atletas/${payload.atleta_id}`);
-    
+
     return { error: null };
 }
 
@@ -494,4 +494,17 @@ export async function softDeleteAthlete(id: string): Promise<{ error: string | n
 
     revalidatePath("/atletas");
     return { error: null };
+}
+export async function getCategories() {
+    const supabase = await createClient(); // Asumiendo que createClient ya está importado arriba
+    const { data, error } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('nombre');
+
+    if (error) {
+        console.error("Error obteniendo categorias:", error);
+        return [];
+    }
+    return data;
 }
