@@ -11,10 +11,17 @@ export type AtletaConAcuerdo = {
     id: string;
     nombre_completo: string;
     documento: string | null;
+    telefono: string | null;
     posicion: string | null;
     status: string;
     category_id: string | null;
     categorias: { id: string; nombre: string } | null;
+    banco: string | null;
+    tipo_cuenta: string | null;
+    numero_cuenta: string | null;
+    alias: string | null;
+    titular_cuenta: string | null;
+    documento_titular: string | null;
     acuerdo_2026: {
         id: string;
         temporada: string;
@@ -37,7 +44,8 @@ export type AtletaConAcuerdo = {
 export type AgreementFormData = {
     // Basic Data
     nombre_completo: string;
-    documento: string;
+    documento?: string;
+    telefono?: string;
     category_id: string;
     
     // Financial Data
@@ -51,6 +59,14 @@ export type AgreementFormData = {
     premio_fijo_resultado: number;
     premio_clasificacion: number;
     premio_campeonato: number;
+
+    // Bank Data
+    banco?: string;
+    tipo_cuenta?: string;
+    numero_cuenta?: string;
+    alias?: string;
+    titular_cuenta?: string;
+    documento_titular?: string;
 };
 
 export type MovimientoTipo = "DEBE" | "HABER";
@@ -63,6 +79,16 @@ export type MovimientoAtleta = {
     tipo: MovimientoTipo;
     monto: number;
     organization_id: string;
+    created_at: string;
+};
+
+export type AtletaMovimiento = {
+    id: string;
+    atleta_id: string;
+    fecha: string;
+    tipo: "DEBE" | "HABER";
+    concepto: string;
+    monto: number;
     created_at: string;
 };
 
@@ -101,9 +127,16 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
             id,
             nombre_completo,
             documento,
+            telefono,
             posicion,
             status,
             category_id,
+            banco,
+            tipo_cuenta,
+            numero_cuenta,
+            alias,
+            titular_cuenta,
+            documento_titular,
             categorias ( id, nombre ),
             athlete_agreements!atleta_id (
                 id,
@@ -148,10 +181,17 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
             id: row.id,
             nombre_completo: row.nombre_completo,
             documento: row.documento ?? null,
+            telefono: row.telefono ?? null,
             posicion: row.posicion ?? null,
             status: row.status ?? "active",
             category_id: row.category_id ?? null,
             categorias: row.categorias ?? null,
+            banco: row.banco ?? null,
+            tipo_cuenta: row.tipo_cuenta ?? null,
+            numero_cuenta: row.numero_cuenta ?? null,
+            alias: row.alias ?? null,
+            titular_cuenta: row.titular_cuenta ?? null,
+            documento_titular: row.documento_titular ?? null,
             acuerdo_2026: acuerdo2026,
         };
     });
@@ -160,7 +200,7 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
 }
 
 /**
- * Fetches basic profile info for a single athlete.
+ * Fetches basic profile info for a single athlete along with their 2026 agreement.
  */
 export async function getAthleteProfile(id: string): Promise<AtletaConAcuerdo | null> {
     const supabase = await createClient();
@@ -171,10 +211,35 @@ export async function getAthleteProfile(id: string): Promise<AtletaConAcuerdo | 
             id,
             nombre_completo,
             documento,
+            telefono,
             posicion,
             status,
             category_id,
-            categorias ( id, nombre )
+            banco,
+            tipo_cuenta,
+            numero_cuenta,
+            alias,
+            titular_cuenta,
+            documento_titular,
+            categorias ( id, nombre ),
+            athlete_agreements!atleta_id (
+                id,
+                temporada,
+                viatico_base,
+                premio_victoria,
+                premio_empate,
+                premio_derrota,
+                costo_pase,
+                prima_inicial,
+                viatico_practica,
+                viatico_partido,
+                es_premio_fijo,
+                premio_fijo_resultado,
+                premio_clasificacion,
+                premio_campeonato,
+                vigente_desde,
+                vigente_hasta
+            )
         `)
         .eq("id", id)
         .single();
@@ -184,10 +249,18 @@ export async function getAthleteProfile(id: string): Promise<AtletaConAcuerdo | 
         return null;
     }
 
+    const agreements: any[] = Array.isArray(data.athlete_agreements)
+        ? data.athlete_agreements
+        : data.athlete_agreements
+        ? [data.athlete_agreements]
+        : [];
+
+    const acuerdo2026 = agreements.find((a) => a.temporada === "2026") ?? null;
+
     return {
         ...data,
-        acuerdo_2026: null, // Basic profile doesn't need agreement for now, or fetch separately if needed
-    } as AtletaConAcuerdo;
+        acuerdo_2026: acuerdo2026,
+    } as unknown as AtletaConAcuerdo;
 }
 
 /**
@@ -251,8 +324,15 @@ export async function saveAthleteAgreement(
     const athletePayload = {
         organization_id: orgId,
         nombre_completo: formData.nombre_completo,
-        documento: formData.documento?.trim() || null, // Guardar null si est\u00e1 vac\u00edo
+        documento: formData.documento?.trim() || null,
+        telefono: formData.telefono?.trim() || null,
         category_id: formData.category_id,
+        banco: formData.banco || null,
+        tipo_cuenta: formData.tipo_cuenta || null,
+        numero_cuenta: formData.numero_cuenta || null,
+        alias: formData.alias || null,
+        titular_cuenta: formData.titular_cuenta || null,
+        documento_titular: formData.documento_titular || null,
         updated_at: new Date().toISOString(),
         active: true,
     };
@@ -387,5 +467,31 @@ export async function saveMovimiento(payload: {
     // 3. Revalidate the profile page
     revalidatePath(`/atletas/${payload.atleta_id}`);
     
+    return { error: null };
+}
+
+/**
+ * Soft-deletes an athlete by setting deleted_at and active = false.
+ * The athlete will be hidden from all active queries.
+ */
+export async function softDeleteAthlete(id: string): Promise<{ error: string | null }> {
+    "use server";
+
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from("atletas")
+        .update({
+            deleted_at: new Date().toISOString(),
+            active: false,
+        })
+        .eq("id", id);
+
+    if (error) {
+        console.error("[softDeleteAthlete] Error:", error.message);
+        return { error: error.message };
+    }
+
+    revalidatePath("/atletas");
     return { error: null };
 }

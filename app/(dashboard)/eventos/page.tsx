@@ -1,8 +1,12 @@
-export default function EventosPage() {
-    return (
-        <div>
-            <h1 className="text-3xl font-bold font-display text-brand-primary">Eventos</h1>
-            <p className="text-muted-foreground mt-2">Calendario de partidos y actividades.</p>
-        </div>
-    );
+import { getEventos } from "@/lib/queries/eventos";
+import { getCategories } from "@/lib/queries/atletas";
+import EventosClient from "./EventosClient";
+
+export default async function EventosPage() {
+    const [eventos, categories] = await Promise.all([
+        getEventos(),
+        getCategories(),
+    ]);
+
+    return <EventosClient eventos={eventos} categories={categories} />;
 }

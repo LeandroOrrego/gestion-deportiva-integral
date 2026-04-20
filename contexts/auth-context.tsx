@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
@@ -30,82 +30,133 @@ const AuthContext = createContext<AuthContextType>({
     signOut: async () => { },
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: detect AbortError from Supabase Auth locks
+// ─────────────────────────────────────────────────────────────────────────────
+
+function isAbortError(error: unknown): boolean {
+    if (error instanceof Error) {
+        return (
+            error.name === 'AbortError' ||
+            error.message?.includes('aborted') ||
+            error.message?.includes('signal')
+        );
+    }
+    return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
-    const supabase = createClient();
+    const supabase = useRef(createClient()).current;
 
     useEffect(() => {
+        let mounted = true;
+
+        // ── Fetch profile helper ────────────────────────────────────────
+        const fetchProfile = async (userId: string) => {
+            try {
+                const { data, error } = await supabase
+                    .from('perfiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+
+                if (!mounted) return;
+
+                if (error) {
+                    console.error('Error fetching profile:', error);
+                } else if (data) {
+                    const nombre_completo =
+                        data.nombre_completo ||
+                        `${data.nombre || ''} ${data.apellido || ''}`.trim();
+                    setProfile({ ...data, nombre_completo });
+                }
+            } catch (err) {
+                if (isAbortError(err)) return; // Silently ignore aborts
+                console.error('Error in fetchProfile:', err);
+            }
+        };
+
+        // ── Initialize session ──────────────────────────────────────────
         const initializeAuth = async () => {
             try {
-                // Get current session
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error: sessionError } =
+                    await supabase.auth.getSession();
 
-                if (session?.user) {
-                    setUser(session.user);
-                    await fetchProfile(session.user.id);
-                } else {
-                    // No session
-                    setUser(null);
-                    setProfile(null);
-                }
-            } catch (error) {
-                console.error('Error initializing auth:', error);
-            } finally {
-                setIsLoading(false);
-            }
+                if (sessionError) throw sessionError;
 
-            // Listen for changes
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-                if (session?.user) {
-                    setUser(session.user);
-                    if (!profile || profile.id !== session.user.id) {
+                if (mounted) {
+                    if (session?.user) {
+                        setUser(session.user);
                         await fetchProfile(session.user.id);
+                    } else {
+                        setUser(null);
+                        setProfile(null);
                     }
-                } else {
-                    setUser(null);
-                    setProfile(null);
-                    setIsLoading(false);
                 }
-
-                if (event === 'SIGNED_OUT') {
-                    router.refresh();
-                    router.push('/login');
-                }
-            });
-
-            return () => {
-                subscription.unsubscribe();
-            };
+            } catch (err) {
+                // ✅ Silently ignore AbortError from Supabase's internal locks
+                if (isAbortError(err)) return;
+                console.error('Error initializing auth:', err);
+            } finally {
+                if (mounted) setIsLoading(false);
+            }
         };
 
         initializeAuth();
-    }, [router]); // supabase is stable
 
-    const fetchProfile = async (userId: string) => {
-        try {
-            const { data, error } = await supabase
-                .from('perfiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
+        // ── Subscribe to auth changes (after initial check) ─────────────
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (!mounted) return;
 
-            if (error) {
-                console.error('Error fetching profile:', error);
-            } else if (data) {
-                // Construct nombre_completo if not present
-                const nombre_completo = data.nombre_completo || `${data.nombre || ''} ${data.apellido || ''}`.trim();
-                setProfile({ ...data, nombre_completo });
+                try {
+                    if (session?.user) {
+                        setUser(session.user);
+                        await fetchProfile(session.user.id);
+                    } else {
+                        setUser(null);
+                        setProfile(null);
+                        setIsLoading(false);
+                    }
+
+                    if (event === 'SIGNED_OUT') {
+                        router.refresh();
+                        router.push('/login');
+                    }
+                } catch (err) {
+                    if (isAbortError(err)) return;
+                    console.error('Error in auth state change:', err);
+                }
             }
-        } catch (error) {
-            console.error('Error in fetchProfile:', error);
-        }
-    };
+        );
 
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
+    }, [router, supabase]);
+
+    // ── Sign out (protected) ────────────────────────────────────────────
     const signOut = async () => {
-        await supabase.auth.signOut();
+        try {
+            await supabase.auth.signOut();
+        } catch (err) {
+            if (isAbortError(err)) {
+                // Session was already in an unstable state, force cleanup
+                console.warn('Sign-out aborted, forcing redirect.');
+            } else {
+                console.error('Error during sign out:', err);
+            }
+        }
+        // Always redirect regardless of error
         router.push('/login');
     };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
     Plus,
     Search,
@@ -11,6 +12,8 @@ import {
     ShieldCheck,
     ShieldX,
     Filter,
+    Trash2,
+    BarChart2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +43,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { AtletaConAcuerdo } from "@/lib/queries/atletas";
+import { softDeleteAthlete } from "@/lib/queries/atletas";
+import { useToast } from "@/hooks/use-toast";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Plantel = string;
 type DocStatus = "ok" | "falta";
@@ -113,15 +128,20 @@ interface AthleteListProps {
     onRegister?: () => void;
     onEdit?: (athlete: AtletaConAcuerdo) => void;
     onViewContract?: (athlete: AtletaConAcuerdo) => void;
+    onGenerateReport?: () => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function AthleteList({ athletes, onRegister, onEdit, onViewContract }: AthleteListProps) {
+export function AthleteList({ athletes, onRegister, onEdit, onViewContract, onGenerateReport }: AthleteListProps) {
+    const router = useRouter();
+    const { toast } = useToast();
     const [plantelFilter, setPlantelFilter] = useState<string>("todos");
     const [searchQuery, setSearchQuery] = useState("");
+    const [deleteTarget, setDeleteTarget] = useState<AtletaConAcuerdo | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const filtered = useMemo(() => {
         return athletes.filter((a) => {
@@ -139,6 +159,7 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract }: At
     }, [athletes, plantelFilter, searchQuery]);
 
     return (
+        <>
         <div className="space-y-5">
             {/* ── Header ──────────────────────────────────────────── */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -150,14 +171,27 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract }: At
                         {athletes.length} jugadores registrados en el club
                     </p>
                 </div>
-                <Button
-                    onClick={onRegister}
-                    className="w-full sm:w-auto gap-2"
-                    id="btn-registrar-atleta"
-                >
-                    <Plus className="h-4 w-4" />
-                    Registrar Atleta
-                </Button>
+                <div className="flex items-center gap-2">
+                    {onGenerateReport && (
+                        <Button
+                            variant="outline"
+                            onClick={onGenerateReport}
+                            className="w-full sm:w-auto gap-2"
+                            id="btn-generar-reporte"
+                        >
+                            <BarChart2 className="h-4 w-4" />
+                            Generar Reporte
+                        </Button>
+                    )}
+                    <Button
+                        onClick={onRegister}
+                        className="w-full sm:w-auto gap-2"
+                        id="btn-registrar-atleta"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Registrar Atleta
+                    </Button>
+                </div>
             </div>
 
             {/* ── Filters ─────────────────────────────────────────── */}
@@ -303,11 +337,19 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract }: At
                                                     Editar atleta
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
-                                                    onClick={() => onViewContract?.(athlete)}
+                                                    onClick={() => router.push(`/atletas/${athlete.id}`)}
                                                     className="gap-2 cursor-pointer"
                                                 >
                                                     <FileText className="h-3.5 w-3.5" />
-                                                    Ver contrato
+                                                    Ver Perfil / Contrato
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                    onClick={() => setDeleteTarget(athlete)}
+                                                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Eliminar atleta
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -331,5 +373,48 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract }: At
                 )}
             </div>
         </div>
+
+        {/* ── Delete Confirmation AlertDialog ─── */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar a {deleteTarget?.nombre_completo}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta acción dará de baja al atleta y lo ocultará de todas las listas activas.
+                        El registro no se borra permanentemente y puede ser recuperado por un administrador.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                        disabled={isDeleting}
+                        className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        onClick={async () => {
+                            if (!deleteTarget) return;
+                            setIsDeleting(true);
+                            const { error } = await softDeleteAthlete(deleteTarget.id);
+                            setIsDeleting(false);
+                            setDeleteTarget(null);
+                            if (error) {
+                                toast({
+                                    title: "Error al eliminar",
+                                    description: error,
+                                    variant: "destructive",
+                                });
+                            } else {
+                                toast({
+                                    title: "Atleta dado de baja",
+                                    description: `${deleteTarget.nombre_completo} fue eliminado del plantel activo.`,
+                                });
+                                router.refresh();
+                            }
+                        }}
+                    >
+                        {isDeleting ? "Eliminando..." : "Continuar"}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    </>
     );
 }

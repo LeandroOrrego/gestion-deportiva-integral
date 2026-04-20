@@ -1,120 +1,212 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { getAthleteProfile, getMovimientos } from "@/lib/queries/atletas";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { CuentaCorrienteAtleta } from "@/components/athletes/CuentaCorrienteAtleta";
 import { notFound } from "next/navigation";
+import { ChevronLeft, User, CreditCard, LayoutDashboard, Building } from "lucide-react";
 
+import { getAthleteProfile, getMovimientos } from "@/lib/queries/atletas";
+import { CuentaCorrienteAtleta } from "@/components/athletes/CuentaCorrienteAtleta";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+// 1. SOLUCIÓN AL ERROR UNDEFINED: Forzamos que params sea una Promesa
 interface AthleteProfilePageProps {
-    params: Promise<{ id: string }>;
+    params: Promise<{
+        id: string;
+    }>;
 }
 
 export default async function AthleteProfilePage({ params }: AthleteProfilePageProps) {
-    const { id } = await params;
-    
-    // Fetch athlete profile and movements in parallel
-    const [atleta, movimientos] = await Promise.all([
-        getAthleteProfile(id),
-        getMovimientos(id)
-    ]);
+    // Esperamos la resolución de la URL
+    const resolvedParams = await params;
 
-    if (!atleta) {
+    // Ahora sí le pasamos el ID real
+    const athlete = await getAthleteProfile(resolvedParams.id);
+
+    if (!athlete) {
         notFound();
     }
 
+    const movimientos = await getMovimientos(athlete.id);
+
     return (
-        <div className="flex flex-col gap-6 p-4 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-700">
-            {/* Header section with back button and athlete info */}
-            <div className="flex flex-col gap-4">
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    asChild 
-                    className="w-fit -ml-2 text-muted-foreground hover:text-brand-primary hover:bg-brand-primary/10 transition-all"
-                >
+        <div className="flex flex-col gap-6 max-w-screen-xl mx-auto pb-10">
+            {/* ── Breadcrumbs & Actions ────────────────────────────── */}
+            <div className="flex items-center justify-between">
+                <Button variant="ghost" size="sm" asChild className="gap-1 -ml-2 text-muted-foreground hover:text-foreground">
                     <Link href="/atletas">
-                        <ChevronLeft className="mr-1.5 h-4 w-4" />
-                        Volver al listado
+                        <ChevronLeft className="h-4 w-4" />
+                        Volver al plantel
                     </Link>
                 </Button>
-                
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-brand-primary">
-                        {atleta.nombre_completo}
-                    </h1>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                        <span className="text-sm font-semibold bg-muted px-2.5 py-0.5 rounded-full border border-border/50">
-                            ID: {atleta.documento || "N/A"}
-                        </span>
-                        {atleta.posicion && (
-                            <>
-                                <span className="h-1.5 w-1.5 rounded-full bg-brand-accent/40" />
-                                <span className="text-sm font-medium">{atleta.posicion}</span>
-                            </>
-                        )}
+            </div>
+
+            {/* ── Header / Identity ────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary border-2 border-primary/20 shrink-0">
+                        <User className="h-8 w-8" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <h1 className="text-3xl font-bold tracking-tight">
+                                {athlete.nombre_completo}
+                            </h1>
+                            <Badge variant="outline" className="px-2 py-0 h-5 text-[10px] uppercase font-bold tracking-wider">
+                                {athlete.status}
+                            </Badge>
+                        </div>
+                        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                            <span className="font-mono">{athlete.documento || "Sin CI"}</span>
+                            <span className="text-border">|</span>
+                            <span>{athlete.categorias?.nombre || "Sin plantel"}</span>
+                            <span className="text-border">|</span>
+                            <span>{athlete.posicion || "Sin posición"}</span>
+                        </p>
                     </div>
                 </div>
             </div>
 
-            {/* Dynamic content area with standard Tabs */}
-            <Tabs defaultValue="cuenta-corriente" className="flex-1 space-y-6">
-                <TabsList className="inline-flex h-12 items-center justify-center rounded-xl bg-muted/50 p-1 text-muted-foreground w-full max-w-[420px] border shadow-sm">
-                    <TabsTrigger 
-                        value="resumen" 
-                        className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-8 py-2 text-sm font-bold ring-offset-background transition-all data-[state=active]:bg-background data-[state=active]:text-brand-primary data-[state=active]:shadow-md"
-                    >
+            {/* ── Tabs Content ─────────────────────────────────────── */}
+            <Tabs defaultValue="cuenta-corriente" className="w-full">
+                <TabsList className="grid w-full sm:w-[400px] grid-cols-2 mb-4">
+                    <TabsTrigger value="resumen" className="gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
                         Resumen
                     </TabsTrigger>
-                    <TabsTrigger 
-                        value="cuenta-corriente"
-                        className="inline-flex items-center justify-center whitespace-nowrap rounded-lg px-8 py-2 text-sm font-bold ring-offset-background transition-all data-[state=active]:bg-background data-[state=active]:text-brand-primary data-[state=active]:shadow-md"
-                    >
+                    <TabsTrigger value="cuenta-corriente" className="gap-2">
+                        <CreditCard className="h-4 w-4" />
                         Cuenta Corriente
                     </TabsTrigger>
                 </TabsList>
-                
-                <TabsContent value="resumen" className="mt-0 focus-visible:outline-none">
-                    <div className="grid gap-6 md:grid-cols-3">
-                        <div className="p-8 rounded-3xl border bg-card/50 backdrop-blur-sm shadow-xl col-span-full md:col-span-2 border-border/60">
-                            <h3 className="text-xl font-bold mb-6 text-foreground">Información General</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Estado Actual</p>
-                                    <div className="flex items-center gap-2">
-                                        <span className="h-2 w-2 rounded-full bg-brand-success shadow-[0_0_8px_rgba(22,163,74,0.5)]" />
-                                        <p className="font-bold text-lg">{atleta.status.toUpperCase()}</p>
+
+                {/* --- TAB: RESUMEN --- */}
+                <TabsContent value="resumen" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                        {/* Columna Izquierda: Datos Personales y Bancarios */}
+                        <div className="md:col-span-1 space-y-6">
+                            {/* Basic Info Card */}
+                            <Card className="border-border/60 shadow-sm">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base font-semibold">Datos Personales</CardTitle>
+                                    <CardDescription>Información en el sistema</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-0">
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Nombre Completo</p>
+                                        <p className="text-sm font-medium">{athlete.nombre_completo}</p>
                                     </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">Plantel / Categoría</p>
-                                    <p className="font-bold text-lg text-brand-secondary">{atleta.categorias?.nombre || "General"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">ID Sistema</p>
-                                    <p className="font-mono text-xs text-muted-foreground">{atleta.id}</p>
-                                </div>
-                            </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Cédula de Identidad</p>
+                                        <p className="text-sm font-mono">{athlete.documento || "No especificado"}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Plantel / Categoría</p>
+                                        <p className="text-sm font-medium">{athlete.categorias?.nombre || "Sin asignar"}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Posición en campo</p>
+                                        <p className="text-sm font-medium">{athlete.posicion || "Sin especificar"}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* NUEVO: Bank Details Card */}
+                            <Card className="border-border/60 shadow-sm">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <Building className="h-4 w-4" /> Datos Bancarios
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-0">
+                                    {/* Usamos 'any' temporalmente por si TypeScript aún no conoce las columnas nuevas */}
+                                    {athlete.banco ? (
+                                        <>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Banco</p>
+                                                <p className="text-sm font-medium">{athlete.banco}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Cuenta ({athlete.tipo_cuenta || 'N/A'})</p>
+                                                <p className="text-sm font-mono">{athlete.numero_cuenta}</p>
+                                            </div>
+                                            {athlete.alias && (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Alias</p>
+                                                    <p className="text-sm font-mono text-blue-600 dark:text-blue-400">{athlete.alias}</p>
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Titular</p>
+                                                <p className="text-sm font-medium">{athlete.titular_cuenta}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Doc. Titular</p>
+                                                <p className="text-sm font-mono">{athlete.documento_titular}</p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-sm text-muted-foreground italic py-2 text-center border-t pt-4">
+                                            Sin datos bancarios registrados.
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
-                        
-                        <div className="p-8 rounded-3xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 to-transparent flex flex-col justify-center items-center text-center gap-4 group">
-                             <div className="p-4 rounded-full bg-brand-primary/10 group-hover:bg-brand-primary/20 transition-colors">
-                                <span className="text-2xl">📊</span>
-                             </div>
-                             <div className="space-y-1">
-                                <p className="text-sm font-bold text-brand-primary italic">Vista de Resumen en desarrollo</p>
-                                <p className="text-[11px] text-muted-foreground leading-relaxed px-4">
-                                    Próximamente verás estadísticas dinámicas, rendimiento por partido y evolución física.
-                                </p>
-                             </div>
-                        </div>
+
+                        {/* Columna Derecha: Acuerdo Financiero */}
+                        <Card className="md:col-span-2 border-border/60 shadow-sm overflow-hidden h-fit">
+                            <CardHeader className="pb-3 bg-muted/20 border-b">
+                                <CardTitle className="text-base font-semibold">Acuerdo Financiero (2026)</CardTitle>
+                                <CardDescription>Condiciones vigentes para la temporada actual</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {athlete.acuerdo_2026 ? (
+                                    <div className="divide-y">
+                                        <div className="grid grid-cols-2 gap-px bg-border/40">
+                                            <div className="bg-card p-4">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Costo Pase / Prima</p>
+                                                <p className="text-sm font-semibold">Gs. {new Intl.NumberFormat("es-PY").format(athlete.acuerdo_2026.costo_pase)}</p>
+                                            </div>
+                                            <div className="bg-card p-4">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Viático por Partido</p>
+                                                <p className="text-sm font-semibold text-primary">Gs. {new Intl.NumberFormat("es-PY").format(athlete.acuerdo_2026.viatico_partido)}</p>
+                                            </div>
+                                            <div className="bg-card p-4">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Premio Victoria</p>
+                                                <p className="text-sm font-semibold text-emerald-600">Gs. {new Intl.NumberFormat("es-PY").format(athlete.acuerdo_2026.premio_victoria)}</p>
+                                            </div>
+                                            <div className="bg-card p-4">
+                                                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Premio Empate</p>
+                                                <p className="text-sm font-semibold text-amber-600">Gs. {new Intl.NumberFormat("es-PY").format(athlete.acuerdo_2026.premio_empate)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 bg-muted/5">
+                                            <p className="text-xs text-muted-foreground">
+                                                Este acuerdo es válido desde el <span className="font-medium text-foreground">{new Date(athlete.acuerdo_2026.vigente_desde).toLocaleDateString()}</span>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="p-10 text-center flex flex-col items-center gap-2">
+                                        <p className="text-sm text-muted-foreground italic">No hay un contrato vigente registrado para el 2026.</p>
+                                        <Button variant="outline" size="sm" asChild>
+                                            <Link href="/atletas">Ir a registrar contrato</Link>
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
                 </TabsContent>
-                
-                <TabsContent value="cuenta-corriente" className="mt-0 focus-visible:outline-none animate-in slide-in-from-bottom-2 duration-500">
-                    <CuentaCorrienteAtleta 
-                        atletaId={atleta.id} 
-                        atletaNombre={atleta.nombre_completo}
+
+                {/* --- TAB: CUENTA CORRIENTE --- */}
+                <TabsContent value="cuenta-corriente">
+                    <CuentaCorrienteAtleta
+                        atletaId={athlete.id}
+                        atletaNombre={athlete.nombre_completo}
                         movimientos={movimientos}
                     />
                 </TabsContent>

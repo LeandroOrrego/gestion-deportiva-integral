@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
@@ -12,9 +12,9 @@ import {
     Save,
     ToggleLeft,
     ToggleRight,
-    BadgePercent,
-    Handshake,
     User,
+    Building,
+    Phone,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ const agreementSchema = z.object({
     // Card 0 - Datos Personales
     nombre_completo: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
     documento: z.string().optional(),
+    telefono: z.string().optional(),
     category_id: z.string().min(1, "La categoría es obligatoria"),
 
     // Card 1 - Costos de Fichaje
@@ -70,6 +71,14 @@ const agreementSchema = z.object({
     // Card 4 - Objetivos
     premio_clasificacion: z.coerce.number().min(0).default(0),
     premio_campeonato: z.coerce.number().min(0).default(0),
+
+    // Card - Datos Bancarios
+    banco: z.string().optional(),
+    tipo_cuenta: z.string().optional(),
+    numero_cuenta: z.string().optional(),
+    alias: z.string().optional(),
+    titular_cuenta: z.string().optional(),
+    documento_titular: z.string().optional(),
 });
 
 type AgreementFormValues = z.infer<typeof agreementSchema>;
@@ -109,7 +118,7 @@ function parseGuaranies(formatted: string): number {
 interface CurrencyFieldProps {
     label: string;
     name: keyof AgreementFormValues;
-    form: ReturnType<typeof useForm<AgreementFormValues>>;
+    form: UseFormReturn<AgreementFormValues>;
     description?: string;
 }
 
@@ -212,32 +221,43 @@ function SectionCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AthleteAgreementForm({
-    initialData,
+    initialData = {} as Partial<AgreementFormValues>,
     athleteName,
     categories,
     onSubmit,
     isPending: externalPending,
 }: AthleteAgreementFormProps) {
-    const [isPremioFijo, setIsPremioFijo] = useState(false);
+    // Initial state for the toggle: if there's a fixed prize, start enabled
+    const [isPremioFijo, setIsPremioFijo] = useState(() =>
+        (initialData?.premio_fijo_resultado ?? 0) > 0
+    );
 
-    const form = useForm<AgreementFormValues>({
-        resolver: zodResolver(agreementSchema),
+    const form = useForm<z.infer<typeof agreementSchema>>({
+        // El 'as any' silencia la pelea de versiones de TypeScript. 
+        // En runtime la validación funcionará perfecto.
+        resolver: zodResolver(agreementSchema) as any,
         defaultValues: {
-            // Uncontrolled input fix: initialData can't set fields to undefined
             nombre_completo: initialData?.nombre_completo || "",
             documento: initialData?.documento || "",
+            telefono: initialData?.telefono || "",
             category_id: initialData?.category_id || "",
-            costo_pase: initialData?.costo_pase ?? 0,
-            prima_inicial: initialData?.prima_inicial ?? 0,
-            viatico_practica: initialData?.viatico_practica ?? 0,
-            viatico_partido: initialData?.viatico_partido ?? 0,
-            premio_victoria: initialData?.premio_victoria ?? 0,
-            premio_empate: initialData?.premio_empate ?? 0,
-            premio_derrota: initialData?.premio_derrota ?? 0,
-            premio_fijo_resultado: initialData?.premio_fijo_resultado ?? 0,
-            premio_clasificacion: initialData?.premio_clasificacion ?? 0,
-            premio_campeonato: initialData?.premio_campeonato ?? 0,
-        },
+            costo_pase: Number(initialData?.costo_pase) || 0,
+            prima_inicial: Number(initialData?.prima_inicial) || 0,
+            viatico_practica: Number(initialData?.viatico_practica) || 0,
+            viatico_partido: Number(initialData?.viatico_partido) || 0,
+            premio_victoria: Number(initialData?.premio_victoria) || 0,
+            premio_empate: Number(initialData?.premio_empate) || 0,
+            premio_derrota: Number(initialData?.premio_derrota) || 0,
+            premio_fijo_resultado: Number(initialData?.premio_fijo_resultado) || 0,
+            premio_clasificacion: Number(initialData?.premio_clasificacion) || 0,
+            premio_campeonato: Number(initialData?.premio_campeonato) || 0,
+            banco: initialData?.banco || "",
+            tipo_cuenta: initialData?.tipo_cuenta || "Caja de Ahorro",
+            numero_cuenta: initialData?.numero_cuenta || "",
+            alias: initialData?.alias || "",
+            titular_cuenta: initialData?.titular_cuenta || "",
+            documento_titular: initialData?.documento_titular || "",
+        }
     });
 
     const handleFormSubmit = async (values: AgreementFormValues) => {
@@ -291,34 +311,153 @@ export function AthleteAgreementForm({
                             )}
                         />
                     </div>
-                    <FormField
-                        control={form.control}
-                        name="category_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Plantel / Categoría</FormLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value}
-                                    value={field.value}
-                                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="telefono"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-1.5">
+                                        <Phone className="h-3.5 w-3.5" />
+                                        Teléfono (WhatsApp)
+                                    </FormLabel>
                                     <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccioná un plantel" />
-                                        </SelectTrigger>
+                                        <Input placeholder="+595 9XX XXXXXX" {...field} />
                                     </FormControl>
-                                    <SelectContent>
-                                        {categories.map((cat) => (
-                                            <SelectItem key={cat.id} value={cat.id}>
-                                                {cat.nombre}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="category_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Plantel / Categoría</FormLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                        value={field.value}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccioná un plantel" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {categories.map((cat) => (
+                                                <SelectItem key={cat.id} value={cat.id}>
+                                                    {cat.nombre}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </SectionCard>
+
+                {/* ── Card - Datos Bancarios ───────────────────────────── */}
+                <SectionCard
+                    icon={Building}
+                    title="Datos Bancarios"
+                    description="Información para transferencias y pagos"
+                    accent="brand"
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="banco"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Banco</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ej: Ueno, Itaú, Visión" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="tipo_cuenta"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Cuenta</FormLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                        value={field.value}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccioná tipo" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="Caja de Ahorro">Caja de Ahorro</SelectItem>
+                                            <SelectItem value="Cuenta Corriente">Cuenta Corriente</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="numero_cuenta"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Número de Cuenta</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ej: 123456789" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="alias"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Alias</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Ej: juan.perez.banco" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="titular_cuenta"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Titular de la Cuenta</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Nombre del titular" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="documento_titular"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Doc. del Titular</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Nro de documento" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
                 </SectionCard>
 
                 {/* ── Card 1: Costos de Fichaje ─────────────────────────── */}

@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 
 import { AthleteList } from "@/components/athletes/AthleteList";
 import { AthleteAgreementForm } from "@/components/athletes/AthleteAgreementForm";
+import { ReportSettingsModal } from "@/components/athletes/ReportSettingsModal";
 import { saveAthleteAgreement, type AtletaConAcuerdo } from "@/lib/queries/atletas";
 
 import {
@@ -38,6 +39,8 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
     const [sheetOpen, setSheetOpen] = useState(false);
     const [selectedAthlete, setSelectedAthlete] = useState<AtletaConAcuerdo | null>(null);
     const [mode, setMode] = useState<"register" | "contract">("register");
+    // Report modal
+    const [reportModalOpen, setReportModalOpen] = useState(false);
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -81,8 +84,8 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
 
             setSheetOpen(false);
             toast({
-                title: "✅ Acuerdo guardado",
-                description: `Las condiciones de ${selectedAthlete.nombre_completo} fueron guardadas correctamente.`,
+                title: "\u2705 Acuerdo guardado",
+                description: `Las condiciones de ${selectedAthlete?.nombre_completo || "el jugador"} fueron guardadas correctamente.`,
             });
         });
     };
@@ -100,8 +103,8 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
         mode === "contract"
             ? `Condiciones financieras vigentes para ${selectedAthlete?.nombre_completo ?? "el jugador"}.`
             : selectedAthlete
-            ? `Editando los datos de ${selectedAthlete.nombre_completo}.`
-            : "Completá los datos del nuevo jugador y definí sus condiciones financieras.";
+            ? `Editando los datos de ${selectedAthlete?.nombre_completo || "el jugador"}.`
+            : "Complet\u00e1 los datos del nuevo jugador y defin\u00ed sus condiciones financieras.";
 
     // ── Initial form data (pre-fill from existing agreement) ─────────────────
 
@@ -110,6 +113,7 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
               // Basic Data
               nombre_completo: selectedAthlete.nombre_completo || "",
               documento: selectedAthlete.documento || "",
+              telefono: selectedAthlete.telefono || "",
               category_id: selectedAthlete.category_id || "",
               
               // Financial Data
@@ -126,6 +130,14 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
               premio_fijo_resultado: selectedAthlete.acuerdo_2026?.premio_fijo_resultado ?? 0,
               premio_clasificacion: selectedAthlete.acuerdo_2026?.premio_clasificacion ?? 0,
               premio_campeonato: selectedAthlete.acuerdo_2026?.premio_campeonato ?? 0,
+
+              // Bank Data
+              banco: selectedAthlete.banco || "",
+              tipo_cuenta: selectedAthlete.tipo_cuenta || "Caja de Ahorro",
+              numero_cuenta: selectedAthlete.numero_cuenta || "",
+              alias: selectedAthlete.alias || "",
+              titular_cuenta: selectedAthlete.titular_cuenta || "",
+              documento_titular: selectedAthlete.documento_titular || "",
           }
         : undefined;
 
@@ -139,6 +151,14 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
                 onRegister={handleRegister}
                 onEdit={handleEdit}
                 onViewContract={handleViewContract}
+                onGenerateReport={() => setReportModalOpen(true)}
+            />
+
+            {/* ── Report Settings Modal ─────────────────────────────────────── */}
+            <ReportSettingsModal
+                open={reportModalOpen}
+                onOpenChange={setReportModalOpen}
+                categories={categories}
             />
 
             {/* ── Lateral Sheet ─────────────────────────────────────────────── */}
@@ -162,7 +182,7 @@ export default function AtletasClient({ athletes, categories }: AtletasClientPro
                         <div className="px-6 py-5 pb-10">
                             <AthleteAgreementForm
                                 athleteName={selectedAthlete?.nombre_completo}
-                                initialData={initialAgreementData}
+                                initialData={initialAgreementData || undefined}
                                 categories={categories}
                                 onSubmit={handleAgreementSubmit}
                                 isPending={isPending}
