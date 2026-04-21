@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, User, CreditCard, LayoutDashboard, Building } from "lucide-react";
 
 import { getAthleteProfile, getMovimientos } from "@/lib/queries/atletas";
+import { getTransactionFormData } from "@/lib/queries/transactions";
 import { CuentaCorrienteAtleta } from "@/components/athletes/CuentaCorrienteAtleta";
+import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -29,6 +31,20 @@ export default async function AthleteProfilePage({ params }: AthleteProfilePageP
     }
 
     const movimientos = await getMovimientos(athlete.id);
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    let accounts: any[] = [];
+    let transactionTypes: any[] = [];
+    
+    if (user) {
+        const { data: perfil } = await supabase.from("perfiles").select("organization_id").eq("id", user.id).single();
+        if (perfil?.organization_id) {
+            const formData = await getTransactionFormData(perfil.organization_id);
+            accounts = formData.accounts;
+            transactionTypes = formData.types;
+        }
+    }
 
     return (
         <div className="flex flex-col gap-6 max-w-screen-xl mx-auto pb-10">
@@ -208,6 +224,8 @@ export default async function AthleteProfilePage({ params }: AthleteProfilePageP
                         atletaId={athlete.id}
                         atletaNombre={athlete.nombre_completo}
                         movimientos={movimientos}
+                        accounts={accounts}
+                        transactionTypes={transactionTypes}
                     />
                 </TabsContent>
             </Tabs>

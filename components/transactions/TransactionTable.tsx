@@ -46,6 +46,7 @@ interface TransactionTableProps {
     onEdit: (transaction: any) => void;
     onVoid: (id: string) => void;
     totalBalance: number;
+    accounts?: any[];
 }
 
 export function TransactionTable({
@@ -55,6 +56,7 @@ export function TransactionTable({
     onEdit,
     onVoid,
     totalBalance,
+    accounts = [],
 }: TransactionTableProps) {
     const { toast } = useToast();
     const [voidId, setVoidId] = useState<string | null>(null);
@@ -112,6 +114,18 @@ export function TransactionTable({
                                 <SelectItem value="all">Todos</SelectItem>
                                 <SelectItem value="deportivo">Deportivo</SelectItem>
                                 <SelectItem value="administrativo">Administrativo</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={filters.cuenta_id || "all"} onValueChange={(val) => onFilterChange({ ...filters, cuenta_id: val })}>
+                            <SelectTrigger className="w-[140px]">
+                                <SelectValue placeholder="Cuenta" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas</SelectItem>
+                                {accounts.map(acc => (
+                                    <SelectItem key={acc.id} value={acc.id}>{acc.nombre}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

@@ -12,6 +12,7 @@ export type TransactionFilter = {
     fondo?: 'deportivo' | 'administrativo' | 'all';
     search?: string;
     excludeCajaMovements?: boolean;
+    cuenta_id?: string;
 }
 
 export async function getTransactions(organizationId: string, filters: TransactionFilter) {
@@ -65,6 +66,10 @@ export async function getTransactions(organizationId: string, filters: Transacti
 
     if (filters.search) {
         query = query.ilike('descripcion', `%${filters.search}%`);
+    }
+
+    if (filters.cuenta_id && filters.cuenta_id !== 'all') {
+        query = query.eq('cuenta_id', filters.cuenta_id);
     }
 
     if (filters.excludeCajaMovements) {

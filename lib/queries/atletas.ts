@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createTransaction } from "./transactions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -422,7 +423,8 @@ export async function saveAthleteAgreement(
 
 /**
  * Records a new financial movement for an athlete.
- * Returns { error: string | null }.
+ * When tipo === "DEBE" (real payment), also registers an EGRESO
+ * in the central transacciones table to impact club accounting.
  */
 export async function saveMovimiento(payload: {
     atleta_id: string;
@@ -430,6 +432,8 @@ export async function saveMovimiento(payload: {
     tipo: MovimientoTipo;
     concepto: string;
     monto: number;
+    cuenta_id?: string;
+    transaction_type_id?: string;
 }): Promise<{ error: string | null }> {
     "use server";
 
@@ -447,26 +451,93 @@ export async function saveMovimiento(payload: {
 
     if (!perfil?.organization_id) return { error: "Organización no encontrada" };
 
-    // 2. Insert movement
-    const { error } = await supabase
+    const orgId = perfil.organization_id;
+    const montoFinal = Math.round(Number(payload.monto) || 0);
+
+    // 2. Build the athlete movement insert
+    const movimientoInsert = supabase
         .from("atleta_movimientos")
         .insert({
-            organization_id: perfil.organization_id,
+            organization_id: orgId,
             atleta_id: payload.atleta_id,
             fecha: payload.fecha,
             tipo: payload.tipo,
             concepto: payload.concepto,
-            monto: Math.round(Number(payload.monto) || 0),
+            monto: montoFinal,
         });
 
+    // 3. If DEBE (pago real), also insert EGRESO in transacciones
+    if (payload.tipo === "DEBE") {
+        if (!payload.cuenta_id || !payload.transaction_type_id) {
+            return { error: "Debe proveer una cuenta y una categoría financiera para pagos." };
+        }
+
+        try {
+            // Ejecutar ambas inserciones en paralelo
+            const [movResult, txResult] = await Promise.all([
+                movimientoInsert,
+                createTransaction({
+                    organization_id: orgId,
+                    fecha: payload.fecha,
+                    flow: "expense",
+                    fondo: "deportivo",
+                    monto: montoFinal,
+                    transaction_type_id: payload.transaction_type_id,
+                    cuenta_id: payload.cuenta_id,
+                    descripcion: `Pago Atleta - ${payload.concepto}`,
+                    atleta_id: payload.atleta_id,
+                })
+            ]);
+
+            if (movResult.error) {
+                console.error("[saveMovimiento] Movimiento Error:", movResult.error.message);
+                return { error: `Error en movimiento: ${movResult.error.message}` };
+            }
+
+            console.log(`[saveMovimiento] ✅ DEBE registrado: movimiento + EGRESO en transacciones (${montoFinal} Gs.)`);
+        } catch (error: any) {
+            console.error("[saveMovimiento] Transacción Error:", error.message);
+            return { error: `Movimiento y transacción fallaron: ${error.message}` };
+        }
+    } else {
+        // HABER: solo insertar movimiento del atleta
+        const { error } = await movimientoInsert;
+
+        if (error) {
+            console.error("[saveMovimiento] Error:", error.message);
+            return { error: error.message };
+        }
+
+        console.log(`[saveMovimiento] ✅ HABER registrado en atleta_movimientos (${montoFinal} Gs.)`);
+    }
+
+    // 4. Revalidate the profile page
+    revalidatePath(`/atletas/${payload.atleta_id}`);
+
+    return { error: null };
+}
+
+/**
+ * Deletes a financial movement from an athlete's current account.
+ * Note: If the movement was a DEBE (linked to a transaction), this only 
+ * deletes the athlete current account tracking portion.
+ */
+export async function deleteMovimiento(id: string, atletaId: string): Promise<{ error: string | null }> {
+    "use server";
+
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from("atleta_movimientos")
+        .delete()
+        .eq("id", id);
+        
     if (error) {
-        console.error("[saveMovimiento] Error:", error.message);
+        console.error("[deleteMovimiento] Error:", error.message);
         return { error: error.message };
     }
 
-    // 3. Revalidate the profile page
-    revalidatePath(`/atletas/${payload.atleta_id}`);
-
+    revalidatePath(`/atletas/${atletaId}`);
     return { error: null };
 }
 

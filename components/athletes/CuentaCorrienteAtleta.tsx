@@ -11,6 +11,7 @@ import {
     Wallet,
     TrendingUp,
     TrendingDown,
+    Trash,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,13 @@ import {
     DialogFooter,
     DialogClose,
 } from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +48,7 @@ import { cn } from "@/lib/utils";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { MovimientoAtleta, MovimientoTipo, saveMovimiento } from "@/lib/queries/atletas";
+import { MovimientoAtleta, MovimientoTipo, saveMovimiento, deleteMovimiento } from "@/lib/queries/atletas";
 import { useToast } from "@/hooks/use-toast";
 
 // (Types moved to lib/queries/atletas.ts)
@@ -125,19 +133,27 @@ interface MovimientoDialogProps {
     onOpenChange: (open: boolean) => void;
     tipo: MovimientoTipo;
     atletaId: string;
+    accounts?: any[];
+    transactionTypes?: any[];
 }
 
-function MovimientoDialog({ open, onOpenChange, tipo, atletaId }: MovimientoDialogProps) {
+function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], transactionTypes = [] }: MovimientoDialogProps) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [fecha, setFecha] = useState(todayISO());
     const [concepto, setConcepto] = useState("");
     const [montoDisplay, setMontoDisplay] = useState("");
+    const [cuentaId, setCuentaId] = useState("");
+    const [transactionTypeId, setTransactionTypeId] = useState("");
     const [error, setError] = useState("");
 
     const isDebe = tipo === "DEBE";
 
     const handleSave = () => {
+        if (isDebe) {
+            if (!cuentaId) return setError("Debe seleccionar una cuenta de origen.");
+            if (!transactionTypeId) return setError("Debe seleccionar una categoría financiera.");
+        }
         if (!concepto.trim()) {
             setError("El concepto es requerido.");
             return;
@@ -155,6 +171,8 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId }: MovimientoDial
                 tipo,
                 concepto: concepto.trim(),
                 monto,
+                cuenta_id: isDebe ? cuentaId : undefined,
+                transaction_type_id: isDebe ? transactionTypeId : undefined,
             });
 
             if (error) {
@@ -172,6 +190,8 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId }: MovimientoDial
                 setFecha(todayISO());
                 setConcepto("");
                 setMontoDisplay("");
+                setCuentaId("");
+                setTransactionTypeId("");
                 setError("");
                 onOpenChange(false);
             }
@@ -269,6 +289,38 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId }: MovimientoDial
                         </div>
                     </div>
 
+                    {/* Conditional Dropdowns for DEBE */}
+                    {isDebe && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Cuenta Origen <span className="text-destructive">*</span></label>
+                                <Select value={cuentaId} onValueChange={(val) => { setCuentaId(val); setError(""); }}>
+                                    <SelectTrigger className="h-10">
+                                        <SelectValue placeholder="Seleccione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {accounts.map(acc => (
+                                            <SelectItem key={acc.id} value={acc.id}>{acc.nombre}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Categoría <span className="text-destructive">*</span></label>
+                                <Select value={transactionTypeId} onValueChange={(val) => { setTransactionTypeId(val); setError(""); }}>
+                                    <SelectTrigger className="h-10">
+                                        <SelectValue placeholder="Seleccione..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {transactionTypes.map(type => (
+                                            <SelectItem key={type.id} value={type.id}>{type.nombre}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Error */}
                     {error && (
                         <p className="text-xs text-destructive font-medium">{error}</p>
@@ -324,6 +376,8 @@ interface CuentaCorrienteAtletaProps {
     atletaId: string;
     atletaNombre: string;
     movimientos: MovimientoAtleta[];
+    accounts?: any[];
+    transactionTypes?: any[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -334,13 +388,30 @@ export function CuentaCorrienteAtleta({
     atletaId,
     atletaNombre,
     movimientos,
+    accounts = [],
+    transactionTypes = [],
 }: CuentaCorrienteAtletaProps) {
+    const { toast } = useToast();
+    const [isDeleting, startDeleting] = useTransition();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogTipo, setDialogTipo] = useState<MovimientoTipo>("HABER");
 
     const openDialog = (tipo: MovimientoTipo) => {
         setDialogTipo(tipo);
         setDialogOpen(true);
+    };
+
+    const handleDelete = (id: string) => {
+        if (!confirm("¿Estás seguro de eliminar este registro? Si era un Pago (DEBE), el dinero restado en Caja NO será devuelto automáticamente; deberás ajustar la transacción o anularla manualmente en el módulo de Transacciones.")) return;
+        
+        startDeleting(async () => {
+            const { error } = await deleteMovimiento(id, atletaId);
+            if (error) {
+                toast({ title: "Error al eliminar", description: error, variant: "destructive" });
+            } else {
+                toast({ title: "Registro eliminado", description: "El movimiento ha sido borrado de la cuenta del atleta." });
+            }
+        });
     };
 
     // ── Computed values ───────────────────────────────────────────────────────
@@ -493,9 +564,10 @@ export function CuentaCorrienteAtleta({
                             <TableHead className="font-semibold text-foreground">Concepto</TableHead>
                             <TableHead className="font-semibold text-foreground">Tipo</TableHead>
                             <TableHead className="font-semibold text-foreground text-right">Monto</TableHead>
-                            <TableHead className="font-semibold text-foreground text-right pr-5">
+                            <TableHead className="font-semibold text-foreground text-right">
                                 Saldo Acumulado
                             </TableHead>
+                            <TableHead className="font-semibold text-foreground text-center w-12"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -507,7 +579,7 @@ export function CuentaCorrienteAtleta({
                             </TableRow>
                         ) : (
                             movimientosConSaldo.map((mov) => (
-                                <TableRow key={mov.id} className="group hover:bg-muted/10 transition-colors">
+                                <TableRow key={mov.id} className={cn("group hover:bg-muted/10 transition-colors", isDeleting && "opacity-50 pointer-events-none")}>
                                     {/* Fecha */}
                                     <TableCell className="pl-5 text-sm text-muted-foreground tabular-nums">
                                         {formatFecha(mov.fecha)}
@@ -563,6 +635,19 @@ export function CuentaCorrienteAtleta({
                                     >
                                         {formatGs(mov.saldoAcumulado)}
                                     </TableCell>
+
+                                    {/* Actions */}
+                                    <TableCell className="text-center w-12">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 hidden group-hover:flex transition-colors"
+                                            onClick={() => handleDelete(mov.id)}
+                                            title="Eliminar este movimiento"
+                                        >
+                                            <Trash className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         )}
@@ -590,6 +675,8 @@ export function CuentaCorrienteAtleta({
                 onOpenChange={setDialogOpen}
                 tipo={dialogTipo}
                 atletaId={atletaId}
+                accounts={accounts}
+                transactionTypes={transactionTypes}
             />
         </div>
     );

@@ -47,6 +47,7 @@ export default function TransactionsPage() {
             endDate: today,
             flow: 'all',
             fondo: 'all',
+            cuenta_id: 'all',
             search: ''
         };
     });
@@ -405,6 +406,7 @@ export default function TransactionsPage() {
                 onEdit={openEditModal}
                 onVoid={handleVoid}
                 totalBalance={totalBalance}
+                accounts={formData.accounts}
             />
 
             <TransactionForm
