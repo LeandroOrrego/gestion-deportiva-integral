@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { MovimientoAtleta, MovimientoTipo } from "@/lib/queries/atletas";
+import { MovimientoAtleta, MovimientoTipo, saveMovimiento } from "@/lib/queries/atletas";
 import { useToast } from "@/hooks/use-toast";
 
 // (Types moved to lib/queries/atletas.ts)
@@ -423,8 +423,8 @@ export function CuentaCorrienteAtleta({
                             saldoNeto > 0
                                 ? "border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800"
                                 : saldoNeto < 0
-                                ? "border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800"
-                                : "border-border bg-muted/20"
+                                    ? "border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800"
+                                    : "border-border bg-muted/20"
                         )}
                     >
                         <Wallet
@@ -433,8 +433,8 @@ export function CuentaCorrienteAtleta({
                                 saldoNeto > 0
                                     ? "text-blue-500"
                                     : saldoNeto < 0
-                                    ? "text-red-500"
-                                    : "text-muted-foreground"
+                                        ? "text-red-500"
+                                        : "text-muted-foreground"
                             )}
                         />
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -446,8 +446,8 @@ export function CuentaCorrienteAtleta({
                                 saldoNeto > 0
                                     ? "text-blue-600 dark:text-blue-400"
                                     : saldoNeto < 0
-                                    ? "text-red-600 dark:text-red-400"
-                                    : "text-foreground"
+                                        ? "text-red-600 dark:text-red-400"
+                                        : "text-foreground"
                             )}
                         >
                             {formatGs(Math.abs(saldoNeto))}
@@ -557,8 +557,8 @@ export function CuentaCorrienteAtleta({
                                             mov.saldoAcumulado > 0
                                                 ? "text-blue-600 dark:text-blue-400"
                                                 : mov.saldoAcumulado < 0
-                                                ? "text-red-600 dark:text-red-400"
-                                                : "text-muted-foreground"
+                                                    ? "text-red-600 dark:text-red-400"
+                                                    : "text-muted-foreground"
                                         )}
                                     >
                                         {formatGs(mov.saldoAcumulado)}
