@@ -6,15 +6,14 @@ import {
     Swords,
     Trophy,
     MapPin,
-    Clock,
 } from "lucide-react";
 
 import { getEventoDetalle, getAsistenciaEvento } from "@/lib/queries/eventos";
 import { AttendanceTable } from "@/components/events/AttendanceTable";
+import { LiquidarButton } from "@/components/events/LiquidarButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page Props (Next.js 15+ dynamic route)
@@ -143,14 +142,9 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                                 </div>
                             </div>
 
-                            {/* Right: Result badge */}
-                            {isPartido && (
-                                <div className="flex items-center gap-3">
-                                    <div className="text-right hidden sm:block">
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                                            Resultado
-                                        </p>
-                                    </div>
+                            {/* Right: Result badge + Liquidar Button */}
+                            <div className="flex items-center gap-3">
+                                {isPartido && (
                                     <Badge
                                         variant="outline"
                                         className={`text-sm font-bold px-4 py-1.5 ${resultadoColor(evento.resultado)}`}
@@ -158,8 +152,12 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                                         {resultadoEmoji(evento.resultado)}{" "}
                                         {evento.resultado || "Pendiente"}
                                     </Badge>
-                                </div>
-                            )}
+                                )}
+                                <LiquidarButton
+                                    eventoId={evento.id}
+                                    isLiquidado={isLiquidado}
+                                />
+                            </div>
                         </div>
                     </div>
 

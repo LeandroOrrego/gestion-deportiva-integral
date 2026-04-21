@@ -248,3 +248,177 @@ export async function saveAsistencia(
     revalidatePath(`/eventos/${eventoId}`);
     return { error: null };
 }
+
+/**
+ * Motor de Liquidación: calcula y registra los pagos de todos los atletas
+ * que asistieron a un evento, basándose en sus acuerdos financieros.
+ *
+ * Para cada atleta asistente:
+ * - Práctica: viatico_practica
+ * - Partido: viatico_partido + premio según resultado (victoria/empate/derrota)
+ *            o premio_fijo_resultado si está configurado.
+ *
+ * Inserta un movimiento HABER en atleta_movimientos y marca el evento como 'Liquidado'.
+ */
+export async function liquidarEvento(
+    eventoId: string
+): Promise<{ error: string | null; liquidados?: number }> {
+    const supabase = await createClient();
+    const orgId = await getOrgId();
+    if (!orgId) return { error: "No se pudo obtener la organización." };
+
+    // ── 1. Obtener el evento y validar estado ───────────────────────────────
+    const { data: evento, error: eventoError } = await supabase
+        .from("eventos")
+        .select("id, fecha, tipo, rival, resultado, estado, categoria_id")
+        .eq("id", eventoId)
+        .single();
+
+    if (eventoError || !evento) {
+        return { error: "No se encontró el evento." };
+    }
+
+    if (evento.estado === "Liquidado") {
+        return { error: "Este evento ya fue liquidado." };
+    }
+
+    // Para partidos, verificar que haya un resultado cargado
+    if (evento.tipo === "Partido" && !evento.resultado) {
+        return { error: "No se puede liquidar un partido sin resultado. Cargá el resultado primero." };
+    }
+
+    // ── 2. Obtener atletas que asistieron ───────────────────────────────────
+    const { data: asistentes, error: asistError } = await supabase
+        .from("evento_asistencia")
+        .select("atleta_id")
+        .eq("evento_id", eventoId)
+        .eq("asistio", true);
+
+    if (asistError) {
+        return { error: `Error al obtener asistencia: ${asistError.message}` };
+    }
+
+    if (!asistentes || asistentes.length === 0) {
+        return { error: "No hay atletas con asistencia marcada para liquidar." };
+    }
+
+    const atletaIds = asistentes.map((a: any) => a.atleta_id);
+
+    // ── 3. Obtener acuerdos financieros de los asistentes ───────────────────
+    const { data: atletas, error: atletasError } = await supabase
+        .from("atletas")
+        .select(`
+            id,
+            nombre_completo,
+            athlete_agreements!atleta_id (
+                temporada,
+                viatico_practica,
+                viatico_partido,
+                premio_victoria,
+                premio_empate,
+                premio_derrota,
+                premio_fijo_resultado
+            )
+        `)
+        .in("id", atletaIds);
+
+    if (atletasError) {
+        return { error: `Error al obtener datos de atletas: ${atletasError.message}` };
+    }
+
+    // ── 4. Calcular pagos e insertar movimientos ────────────────────────────
+    const fechaHoy = new Date().toISOString().split("T")[0];
+    const movimientos: any[] = [];
+    let liquidados = 0;
+
+    for (const atleta of atletas || []) {
+        // Buscar acuerdo 2026
+        const agreements: any[] = Array.isArray(atleta.athlete_agreements)
+            ? atleta.athlete_agreements
+            : atleta.athlete_agreements
+                ? [atleta.athlete_agreements]
+                : [];
+
+        const acuerdo = agreements.find((a: any) => a.temporada === "2026");
+        if (!acuerdo) continue; // Sin acuerdo, no se puede liquidar
+
+        let monto = 0;
+        let concepto = "";
+
+        if (evento.tipo === "Practica") {
+            // ── Práctica: solo viático
+            monto = Number(acuerdo.viatico_practica) || 0;
+            concepto = `Liquidación: Práctica — ${evento.fecha}`;
+        } else {
+            // ── Partido: viático + premio
+            const viatico = Number(acuerdo.viatico_partido) || 0;
+            let premio = 0;
+
+            // Si tiene premio fijo configurado, usar ese
+            const premioFijo = Number(acuerdo.premio_fijo_resultado) || 0;
+            if (premioFijo > 0) {
+                premio = premioFijo;
+            } else {
+                // Premio variable según resultado
+                switch (evento.resultado) {
+                    case "Victoria":
+                        premio = Number(acuerdo.premio_victoria) || 0;
+                        break;
+                    case "Empate":
+                        premio = Number(acuerdo.premio_empate) || 0;
+                        break;
+                    case "Derrota":
+                        premio = Number(acuerdo.premio_derrota) || 0;
+                        break;
+                }
+            }
+
+            monto = viatico + premio;
+            concepto = `Liquidación: Partido vs ${evento.rival || "Rival"} (${evento.resultado})`;
+        }
+
+        if (monto <= 0) continue; // No hay monto, no se genera movimiento
+
+        movimientos.push({
+            organization_id: orgId,
+            atleta_id: atleta.id,
+            fecha: fechaHoy,
+            tipo: "HABER",
+            concepto,
+            monto: Math.round(monto),
+        });
+
+        liquidados++;
+    }
+
+    // ── 5. Insertar todos los movimientos en batch ──────────────────────────
+    if (movimientos.length > 0) {
+        const { error: insertError } = await supabase
+            .from("atleta_movimientos")
+            .insert(movimientos);
+
+        if (insertError) {
+            return { error: `Error al insertar movimientos: ${insertError.message}` };
+        }
+    }
+
+    // ── 6. Marcar evento como Liquidado ─────────────────────────────────────
+    const { error: updateError } = await supabase
+        .from("eventos")
+        .update({ estado: "Liquidado", updated_at: new Date().toISOString() })
+        .eq("id", eventoId);
+
+    if (updateError) {
+        return { error: `Movimientos insertados pero error al actualizar estado: ${updateError.message}` };
+    }
+
+    // ── 7. Revalidar rutas ──────────────────────────────────────────────────
+    revalidatePath(`/eventos/${eventoId}`);
+    revalidatePath("/eventos");
+    // Revalidar las cuentas corrientes de los atletas afectados
+    for (const atletaId of atletaIds) {
+        revalidatePath(`/atletas/${atletaId}`);
+    }
+
+    return { error: null, liquidados };
+}
