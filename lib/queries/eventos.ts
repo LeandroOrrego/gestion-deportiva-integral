@@ -287,14 +287,33 @@ export async function liquidarEvento(
         return { error: "No se puede liquidar un partido sin resultado. Cargá el resultado primero." };
     }
 
-    // ── 2. Obtener atletas que asistieron ───────────────────────────────────
+    // ── 2. Obtener asistentes con sus acuerdos en una sola query ──────────
+    //    Usamos el alias "jugador" para el JOIN a atletas.
+    //    Esto evita que Supabase hidrate atleta_id como objeto.
     const { data: asistentes, error: asistError } = await supabase
         .from("evento_asistencia")
-        .select("atleta_id")
+        .select(`
+            id,
+            asistio,
+            jugador:atletas!atleta_id (
+                id,
+                nombre_completo,
+                athlete_agreements!atleta_id (
+                    temporada,
+                    viatico_practica,
+                    viatico_partido,
+                    premio_victoria,
+                    premio_empate,
+                    premio_derrota,
+                    premio_fijo_resultado
+                )
+            )
+        `)
         .eq("evento_id", eventoId)
         .eq("asistio", true);
 
     if (asistError) {
+        console.error("[liquidarEvento] Error asistencia:", asistError.message);
         return { error: `Error al obtener asistencia: ${asistError.message}` };
     }
 
@@ -302,50 +321,7 @@ export async function liquidarEvento(
         return { error: "No hay atletas con asistencia marcada para liquidar." };
     }
 
-    // Extraer los UUIDs reales de atletas desde evento_asistencia
-    const atletaIds: string[] = asistentes.map((a: any) => String(a.atleta_id));
-
-    // ── 3. Obtener acuerdos financieros de los asistentes ───────────────────
-    const { data: atletasRaw, error: atletasError } = await supabase
-        .from("atletas")
-        .select(`
-            id,
-            nombre_completo,
-            athlete_agreements!atleta_id (
-                temporada,
-                viatico_practica,
-                viatico_partido,
-                premio_victoria,
-                premio_empate,
-                premio_derrota,
-                premio_fijo_resultado
-            )
-        `)
-        .in("id", atletaIds);
-
-    if (atletasError) {
-        return { error: `Error al obtener datos de atletas: ${atletasError.message}` };
-    }
-
-    // Crear un mapa: atletaId -> { nombre, acuerdo }
-    const atletaMap = new Map<string, { nombre: string; acuerdo: any }>();
-    for (const row of atletasRaw || []) {
-        const agreements: any[] = Array.isArray(row.athlete_agreements)
-            ? row.athlete_agreements
-            : row.athlete_agreements
-                ? [row.athlete_agreements]
-                : [];
-
-        const acuerdo = agreements.find((a: any) => a.temporada === "2026");
-        if (acuerdo) {
-            atletaMap.set(String(row.id), {
-                nombre: row.nombre_completo,
-                acuerdo,
-            });
-        }
-    }
-
-    // ── 4. Calcular pagos iterando por los IDs originales de asistencia ──────
+    // ── 3. Calcular pagos ───────────────────────────────────────────────────
     const fechaHoy = new Date().toISOString().split("T")[0];
     const movimientos: {
         organization_id: string;
@@ -355,13 +331,35 @@ export async function liquidarEvento(
         concepto: string;
         monto: number;
     }[] = [];
+    const atletaIdsAfectados: string[] = [];
     let liquidados = 0;
 
-    for (const atletaId of atletaIds) {
-        const info = atletaMap.get(atletaId);
-        if (!info) continue; // Sin acuerdo 2026, skip
+    for (const row of asistentes) {
+        // "jugador" es el alias del JOIN a atletas
+        const jugador: any = row.jugador;
+        if (!jugador) continue;
 
-        const { acuerdo } = info;
+        // Extraer el UUID real del atleta de forma segura
+        const atletaId: string | null =
+            typeof jugador === "object" && jugador !== null
+                ? jugador.id
+                : null;
+
+        if (!atletaId || typeof atletaId !== "string" || atletaId.length < 30) {
+            console.warn("[liquidarEvento] atleta_id inválido, saltando:", jugador);
+            continue;
+        }
+
+        // Buscar acuerdo 2026
+        const agreements: any[] = Array.isArray(jugador.athlete_agreements)
+            ? jugador.athlete_agreements
+            : jugador.athlete_agreements
+                ? [jugador.athlete_agreements]
+                : [];
+
+        const acuerdo = agreements.find((a: any) => a.temporada === "2026");
+        if (!acuerdo) continue;
+
         let monto = 0;
         let concepto = "";
 
@@ -395,7 +393,6 @@ export async function liquidarEvento(
 
         if (monto <= 0) continue;
 
-        // ✅ atletaId proviene directamente de evento_asistencia.atleta_id
         movimientos.push({
             organization_id: orgId,
             atleta_id: atletaId,
@@ -405,8 +402,12 @@ export async function liquidarEvento(
             monto: Math.round(monto),
         });
 
+        atletaIdsAfectados.push(atletaId);
         liquidados++;
     }
+
+    // ── 4. Debug: loguear payload antes de insertar ─────────────────────────
+    console.log("[liquidarEvento] PAYLOAD A INSERTAR:", JSON.stringify(movimientos, null, 2));
 
     // ── 5. Insertar todos los movimientos en batch ──────────────────────────
     if (movimientos.length > 0) {
@@ -415,6 +416,7 @@ export async function liquidarEvento(
             .insert(movimientos);
 
         if (insertError) {
+            console.error("[liquidarEvento] Insert Error:", insertError.message);
             return { error: `Error al insertar movimientos: ${insertError.message}` };
         }
     }
@@ -432,9 +434,10 @@ export async function liquidarEvento(
     // ── 7. Revalidar rutas ──────────────────────────────────────────────────
     revalidatePath(`/eventos/${eventoId}`);
     revalidatePath("/eventos");
-    for (const atletaId of atletaIds) {
-        revalidatePath(`/atletas/${atletaId}`);
+    for (const id of atletaIdsAfectados) {
+        revalidatePath(`/atletas/${id}`);
     }
 
     return { error: null, liquidados };
 }
+
