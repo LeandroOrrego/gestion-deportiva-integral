@@ -302,10 +302,11 @@ export async function liquidarEvento(
         return { error: "No hay atletas con asistencia marcada para liquidar." };
     }
 
-    const atletaIds = asistentes.map((a: any) => a.atleta_id);
+    // Extraer los UUIDs reales de atletas desde evento_asistencia
+    const atletaIds: string[] = asistentes.map((a: any) => String(a.atleta_id));
 
     // ── 3. Obtener acuerdos financieros de los asistentes ───────────────────
-    const { data: atletas, error: atletasError } = await supabase
+    const { data: atletasRaw, error: atletasError } = await supabase
         .from("atletas")
         .select(`
             id,
@@ -326,40 +327,55 @@ export async function liquidarEvento(
         return { error: `Error al obtener datos de atletas: ${atletasError.message}` };
     }
 
-    // ── 4. Calcular pagos e insertar movimientos ────────────────────────────
-    const fechaHoy = new Date().toISOString().split("T")[0];
-    const movimientos: any[] = [];
-    let liquidados = 0;
-
-    for (const atleta of atletas || []) {
-        // Buscar acuerdo 2026
-        const agreements: any[] = Array.isArray(atleta.athlete_agreements)
-            ? atleta.athlete_agreements
-            : atleta.athlete_agreements
-                ? [atleta.athlete_agreements]
+    // Crear un mapa: atletaId -> { nombre, acuerdo }
+    const atletaMap = new Map<string, { nombre: string; acuerdo: any }>();
+    for (const row of atletasRaw || []) {
+        const agreements: any[] = Array.isArray(row.athlete_agreements)
+            ? row.athlete_agreements
+            : row.athlete_agreements
+                ? [row.athlete_agreements]
                 : [];
 
         const acuerdo = agreements.find((a: any) => a.temporada === "2026");
-        if (!acuerdo) continue; // Sin acuerdo, no se puede liquidar
+        if (acuerdo) {
+            atletaMap.set(String(row.id), {
+                nombre: row.nombre_completo,
+                acuerdo,
+            });
+        }
+    }
 
+    // ── 4. Calcular pagos iterando por los IDs originales de asistencia ──────
+    const fechaHoy = new Date().toISOString().split("T")[0];
+    const movimientos: {
+        organization_id: string;
+        atleta_id: string;
+        fecha: string;
+        tipo: string;
+        concepto: string;
+        monto: number;
+    }[] = [];
+    let liquidados = 0;
+
+    for (const atletaId of atletaIds) {
+        const info = atletaMap.get(atletaId);
+        if (!info) continue; // Sin acuerdo 2026, skip
+
+        const { acuerdo } = info;
         let monto = 0;
         let concepto = "";
 
         if (evento.tipo === "Practica") {
-            // ── Práctica: solo viático
             monto = Number(acuerdo.viatico_practica) || 0;
             concepto = `Liquidación: Práctica — ${evento.fecha}`;
         } else {
-            // ── Partido: viático + premio
             const viatico = Number(acuerdo.viatico_partido) || 0;
             let premio = 0;
 
-            // Si tiene premio fijo configurado, usar ese
             const premioFijo = Number(acuerdo.premio_fijo_resultado) || 0;
             if (premioFijo > 0) {
                 premio = premioFijo;
             } else {
-                // Premio variable según resultado
                 switch (evento.resultado) {
                     case "Victoria":
                         premio = Number(acuerdo.premio_victoria) || 0;
@@ -377,11 +393,12 @@ export async function liquidarEvento(
             concepto = `Liquidación: Partido vs ${evento.rival || "Rival"} (${evento.resultado})`;
         }
 
-        if (monto <= 0) continue; // No hay monto, no se genera movimiento
+        if (monto <= 0) continue;
 
+        // ✅ atletaId proviene directamente de evento_asistencia.atleta_id
         movimientos.push({
             organization_id: orgId,
-            atleta_id: atleta.id,
+            atleta_id: atletaId,
             fecha: fechaHoy,
             tipo: "HABER",
             concepto,
@@ -415,7 +432,6 @@ export async function liquidarEvento(
     // ── 7. Revalidar rutas ──────────────────────────────────────────────────
     revalidatePath(`/eventos/${eventoId}`);
     revalidatePath("/eventos");
-    // Revalidar las cuentas corrientes de los atletas afectados
     for (const atletaId of atletaIds) {
         revalidatePath(`/atletas/${atletaId}`);
     }
