@@ -152,6 +152,7 @@ export function TransactionTable({
                             <TableHead>Categoría</TableHead>
                             <TableHead>Plantel</TableHead>
                             <TableHead>Cuenta</TableHead>
+                            <TableHead>Nº Comp.</TableHead>
                             <TableHead>Fondo</TableHead>
                             <TableHead className="text-right">Monto</TableHead>
                             <TableHead>Estado</TableHead>
@@ -161,7 +162,7 @@ export function TransactionTable({
                     <TableBody>
                         {data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="h-24 text-center">
+                                <TableCell colSpan={10} className="h-24 text-center">
                                     No se encontraron transacciones.
                                 </TableCell>
                             </TableRow>
@@ -182,6 +183,9 @@ export function TransactionTable({
                                     </TableCell>
                                     <TableCell>
                                         {transaction.cuentas?.nombre || '-'}
+                                    </TableCell>
+                                    <TableCell className="text-xs font-mono text-muted-foreground">
+                                        {transaction.comprobante_numero || '-'}
                                     </TableCell>
                                     <TableCell>
                                         <Badge
