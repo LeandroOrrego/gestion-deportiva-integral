@@ -23,7 +23,7 @@ import {
 import { Currency } from "@/components/ui/currency";
 import {
     CalendarDays, TrendingUp, TrendingDown, Wallet, BarChart3, Landmark,
-    ArrowUpRight, ArrowDownRight, Loader2,
+    ArrowUpRight, ArrowDownRight, Loader2, Users, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,12 +35,13 @@ function firstOfMonth() {
 }
 function fmtGs(v: number) { return `₲ ${new Intl.NumberFormat("es-PY").format(Math.round(v))}`; }
 
+type CatRow = { nombre: string; total: number; count: number };
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function ReportesPage() {
     const { profile } = useAuth();
     const orgId = profile?.organization_id || "";
 
-    // Shared form data (accounts, categories)
     const [accounts, setAccounts] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [eventos, setEventos] = useState<any[]>([]);
@@ -101,25 +102,30 @@ function JornadaTab({ orgId, eventos }: { orgId: string; eventos: any[] }) {
             .finally(() => setLoading(false));
     }, [orgId, eventoId]);
 
-    const { totalIncome, totalExpense, byCategory } = useMemo(() => {
-        const inc = data.filter(t => t.flow === "income" && t.status === "confirmed")
+    const { totalIncome, totalExpense, incomeByCategory, expenseByCategory } = useMemo(() => {
+        const confirmed = data.filter(t => t.status === "confirmed");
+        const inc = confirmed.filter(t => t.flow === "income")
             .reduce((s, t) => s + Number(t.monto), 0);
-        const exp = data.filter(t => t.flow === "expense" && t.status === "confirmed")
+        const exp = confirmed.filter(t => t.flow === "expense")
             .reduce((s, t) => s + Number(t.monto), 0);
 
-        const map = new Map<string, { nombre: string; total: number; count: number }>();
-        data.filter(t => t.status === "confirmed").forEach((t) => {
-            const cat = t.transaction_types?.nombre || "Sin categoría";
-            const prev = map.get(cat) || { nombre: cat, total: 0, count: 0 };
-            prev.total += Number(t.monto);
-            prev.count += 1;
-            map.set(cat, prev);
-        });
+        const buildMap = (flow: string): CatRow[] => {
+            const map = new Map<string, CatRow>();
+            confirmed.filter(t => t.flow === flow).forEach((t) => {
+                const cat = t.transaction_types?.nombre || "Sin categoría";
+                const prev = map.get(cat) || { nombre: cat, total: 0, count: 0 };
+                prev.total += Number(t.monto);
+                prev.count += 1;
+                map.set(cat, prev);
+            });
+            return Array.from(map.values()).sort((a, b) => b.total - a.total);
+        };
 
         return {
             totalIncome: inc,
             totalExpense: exp,
-            byCategory: Array.from(map.values()).sort((a, b) => b.total - a.total),
+            incomeByCategory: buildMap("income"),
+            expenseByCategory: buildMap("expense"),
         };
     }, [data]);
 
@@ -130,12 +136,12 @@ function JornadaTab({ orgId, eventos }: { orgId: string; eventos: any[] }) {
                 <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
                     <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Seleccione el Evento:</span>
+                        <span className="text-sm font-medium">Seleccione la Jornada:</span>
                     </div>
-                    
+
                     <Select value={eventoId} onValueChange={setEventoId}>
-                        <SelectTrigger className="w-[300px] h-9">
-                            <SelectValue placeholder="Elegir partido/práctica" />
+                        <SelectTrigger className="w-[340px] h-9">
+                            <SelectValue placeholder="Elegir jornada deportiva" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">-- Seleccionar --</SelectItem>
@@ -159,50 +165,28 @@ function JornadaTab({ orgId, eventos }: { orgId: string; eventos: any[] }) {
 
             {/* KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <KPICard label="Ingresos del Día" value={totalIncome} icon={ArrowUpRight} color="green" />
-                <KPICard label="Egresos del Día" value={totalExpense} icon={ArrowDownRight} color="red" />
+                <KPICard label="Ingresos de la Jornada" value={totalIncome} icon={ArrowUpRight} color="green" />
+                <KPICard label="Egresos de la Jornada" value={totalExpense} icon={ArrowDownRight} color="red" />
                 <KPICard label="Resultado Neto" value={totalIncome - totalExpense} icon={Wallet} color="blue" />
             </div>
 
-            {/* Desglose por categoría */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Desglose por Categoría Financiera</CardTitle>
-                    <CardDescription>Agrupación automática de todas las transacciones del día</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/20">
-                                <TableHead className="pl-6">Categoría</TableHead>
-                                <TableHead className="text-center">Operaciones</TableHead>
-                                <TableHead className="text-right pr-6">Total</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {byCategory.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                                        Sin transacciones para esta fecha.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                byCategory.map((cat) => (
-                                    <TableRow key={cat.nombre}>
-                                        <TableCell className="pl-6 font-medium">{cat.nombre}</TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant="secondary" className="font-mono">{cat.count}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right pr-6 font-mono font-semibold">
-                                            {fmtGs(cat.total)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            {/* Desglose separado: Ingresos y Egresos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <CategoryBreakdownCard
+                    title="Ingresos de la Jornada"
+                    description="Entradas, Cantina, Auspicios, etc."
+                    rows={incomeByCategory}
+                    emptyText="Sin ingresos para esta jornada."
+                    colorClass="text-emerald-600 dark:text-emerald-400"
+                />
+                <CategoryBreakdownCard
+                    title="Egresos de la Jornada"
+                    description="Árbitros, Viáticos, % Liga, etc."
+                    rows={expenseByCategory}
+                    emptyText="Sin egresos para esta jornada."
+                    colorClass="text-red-600 dark:text-red-400"
+                />
+            </div>
         </div>
     );
 }
@@ -216,6 +200,7 @@ function GeneralTab({ orgId, accounts }: { orgId: string; accounts: any[] }) {
     const [cuentaId, setCuentaId] = useState("all");
     const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
     const [saldos, setSaldos] = useState<any[]>([]);
+    const [rawData, setRawData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -225,11 +210,39 @@ function GeneralTab({ orgId, accounts }: { orgId: string; accounts: any[] }) {
         Promise.all([
             getTransactionStats(orgId, filters),
             getSaldosPorCuenta(orgId),
-        ]).then(([s, c]) => {
+            getTransactions(orgId, filters),
+        ]).then(([s, c, txns]) => {
             setStats(s);
             setSaldos(c);
+            setRawData(txns);
         }).finally(() => setLoading(false));
     }, [orgId, startDate, endDate, cuentaId]);
+
+    // Desglose por Plantel (categorias = plantel en el modelo)
+    const byPlantel = useMemo(() => {
+        const map = new Map<string, CatRow>();
+        rawData.filter(t => t.status === "confirmed" && t.flow === "expense").forEach(t => {
+            const plantel = t.categorias?.nombre || "Sin Plantel";
+            const prev = map.get(plantel) || { nombre: plantel, total: 0, count: 0 };
+            prev.total += Number(t.monto);
+            prev.count += 1;
+            map.set(plantel, prev);
+        });
+        return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    }, [rawData]);
+
+    // Desglose por Categoría Financiera (transaction_types)
+    const byCategoria = useMemo(() => {
+        const map = new Map<string, CatRow>();
+        rawData.filter(t => t.status === "confirmed" && t.flow === "expense").forEach(t => {
+            const cat = t.transaction_types?.nombre || "Sin Categoría";
+            const prev = map.get(cat) || { nombre: cat, total: 0, count: 0 };
+            prev.total += Number(t.monto);
+            prev.count += 1;
+            map.set(cat, prev);
+        });
+        return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    }, [rawData]);
 
     return (
         <div className="space-y-5">
@@ -269,6 +282,91 @@ function GeneralTab({ orgId, accounts }: { orgId: string; accounts: any[] }) {
                 <KPICard label="Ingresos" value={stats.income} icon={TrendingUp} color="green" />
                 <KPICard label="Egresos" value={stats.expense} icon={TrendingDown} color="red" />
                 <KPICard label="Saldo Período" value={stats.balance} icon={Wallet} color="blue" />
+            </div>
+
+            {/* Desgloses históricos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Users className="h-4 w-4" /> Egresos por Plantel
+                        </CardTitle>
+                        <CardDescription>Distribución de gastos por categoría deportiva</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/20">
+                                    <TableHead className="pl-6">Plantel</TableHead>
+                                    <TableHead className="text-center">Operaciones</TableHead>
+                                    <TableHead className="text-right pr-6">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {byPlantel.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-20 text-center text-muted-foreground">
+                                            Sin datos en este período.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    byPlantel.map((row) => (
+                                        <TableRow key={row.nombre}>
+                                            <TableCell className="pl-6 font-medium">{row.nombre}</TableCell>
+                                            <TableCell className="text-center">
+                                                <Badge variant="secondary" className="font-mono">{row.count}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 font-mono font-semibold text-red-600 dark:text-red-400">
+                                                {fmtGs(row.total)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Tag className="h-4 w-4" /> Egresos por Categoría Financiera
+                        </CardTitle>
+                        <CardDescription>Primas, Viáticos, Arbitraje, Auspicios, etc.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/20">
+                                    <TableHead className="pl-6">Categoría</TableHead>
+                                    <TableHead className="text-center">Operaciones</TableHead>
+                                    <TableHead className="text-right pr-6">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {byCategoria.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-20 text-center text-muted-foreground">
+                                            Sin datos en este período.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    byCategoria.map((row) => (
+                                        <TableRow key={row.nombre}>
+                                            <TableCell className="pl-6 font-medium">{row.nombre}</TableCell>
+                                            <TableCell className="text-center">
+                                                <Badge variant="secondary" className="font-mono">{row.count}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 font-mono font-semibold text-red-600 dark:text-red-400">
+                                                {fmtGs(row.total)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Saldos actuales */}
@@ -313,6 +411,66 @@ function GeneralTab({ orgId, accounts }: { orgId: string; accounts: any[] }) {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Shared: Category Breakdown Card (reutilizable para ingresos y egresos)
+// ═══════════════════════════════════════════════════════════════════════════════
+function CategoryBreakdownCard({ title, description, rows, emptyText, colorClass }: {
+    title: string; description: string; rows: CatRow[]; emptyText: string; colorClass: string;
+}) {
+    const total = rows.reduce((s, r) => s + r.total, 0);
+    return (
+        <Card>
+            <CardHeader className="pb-3">
+                <CardTitle className="text-base">{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-muted/20">
+                            <TableHead className="pl-6">Categoría</TableHead>
+                            <TableHead className="text-center">Ops.</TableHead>
+                            <TableHead className="text-right pr-6">Total</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-20 text-center text-muted-foreground">
+                                    {emptyText}
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            <>
+                                {rows.map((cat) => (
+                                    <TableRow key={cat.nombre}>
+                                        <TableCell className="pl-6 font-medium">{cat.nombre}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant="secondary" className="font-mono">{cat.count}</Badge>
+                                        </TableCell>
+                                        <TableCell className={cn("text-right pr-6 font-mono font-semibold", colorClass)}>
+                                            {fmtGs(cat.total)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                <TableRow className="bg-muted/10 border-t-2">
+                                    <TableCell className="pl-6 font-bold">TOTAL</TableCell>
+                                    <TableCell className="text-center">
+                                        <Badge variant="secondary" className="font-mono">{rows.reduce((s, r) => s + r.count, 0)}</Badge>
+                                    </TableCell>
+                                    <TableCell className={cn("text-right pr-6 font-mono font-bold", colorClass)}>
+                                        {fmtGs(total)}
+                                    </TableCell>
+                                </TableRow>
+                            </>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     );
 }
 

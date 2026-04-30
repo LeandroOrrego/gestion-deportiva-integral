@@ -143,7 +143,15 @@ export function TransactionForm({
     const handleFormSubmit = async (values: TransactionFormValues) => {
         setIsSubmitting(true);
         try {
-            await onSubmit(values);
+            // Sanitizar campos opcionales UUID/Integer para evitar errores de tipo en Supabase
+            const sanitized = {
+                ...values,
+                evento_id: (values.evento_id && values.evento_id !== "" && values.evento_id !== "none") ? values.evento_id : null,
+                cantidad: (values.cantidad && values.cantidad !== "") ? parseInt(values.cantidad, 10) : null,
+                category_id: (values.category_id && values.category_id !== "" && values.category_id !== "none") ? values.category_id : null,
+                entidad_id: (values.entidad_id && values.entidad_id !== "" && values.entidad_id !== "none") ? values.entidad_id : null,
+            };
+            await onSubmit(sanitized);
             onOpenChange(false);
         } catch (error) {
             console.error(error);
@@ -460,7 +468,7 @@ export function TransactionForm({
                                             name="evento_id"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>Evento / Partido (Opcional)</FormLabel>
+                                                    <FormLabel>Jornada Deportiva (Opcional)</FormLabel>
                                                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                                         <FormControl>
                                                             <SelectTrigger className="px-4 py-3 h-auto">
