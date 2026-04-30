@@ -16,6 +16,7 @@ export type Evento = {
     rival: string | null;
     resultado: "Victoria" | "Empate" | "Derrota" | null;
     estado: "Pendiente" | "Liquidado";
+    jornada: string | null;
     organization_id: string;
     created_at: string;
 };
@@ -75,6 +76,7 @@ export async function getEventos(): Promise<Evento[]> {
             rival,
             resultado,
             estado,
+            jornada,
             organization_id,
             created_at
         `)
@@ -106,6 +108,7 @@ export async function getEventoDetalle(id: string): Promise<EventoDetalle | null
             rival,
             resultado,
             estado,
+            jornada,
             organization_id,
             created_at
         `)
@@ -190,6 +193,7 @@ export async function saveEvento(formData: {
     categoria_id: string;
     rival?: string;
     resultado?: string;
+    jornada?: string;
 }): Promise<{ error: string | null; eventoId?: string }> {
     const supabase = await createClient();
     const orgId = await getOrgId();
@@ -203,6 +207,7 @@ export async function saveEvento(formData: {
             categoria_id: formData.categoria_id || null,
             rival: formData.rival || null,
             resultado: formData.resultado || null,
+            jornada: formData.jornada || null,
             estado: "Pendiente",
             organization_id: orgId,
         })

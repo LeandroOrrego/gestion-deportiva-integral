@@ -41,6 +41,7 @@ const eventSchema = z.object({
         message: "Seleccioná un tipo de evento",
     }),
     categoria_id: z.string().min(1, "La categoría es obligatoria"),
+    jornada: z.string().optional(),
     rival: z.string().optional(),
     resultado: z.enum(["Victoria", "Empate", "Derrota"]).optional(),
 });
@@ -69,6 +70,7 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
             fecha: new Date().toISOString().split("T")[0],
             tipo: "Partido",
             categoria_id: "",
+            jornada: "",
             rival: "",
             resultado: undefined,
         },
@@ -186,6 +188,24 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Nombre de la Jornada */}
+                        <FormField
+                            control={form.control}
+                            name="jornada"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nombre de la Jornada</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Ej: Jornada 1"
+                                            {...field}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

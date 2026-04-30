@@ -122,7 +122,7 @@ export async function getTransactionFormData(organizationId: string) {
         supabase.from('categorias').select('id, nombre').eq('organization_id', organizationId),
         supabase.from('cuentas').select('id, nombre, saldo_inicial, activo').eq('organization_id', organizationId).eq('activo', true),
         supabase.from('entidades').select('id, nombre, tipo_entidad_id').eq('organization_id', organizationId),
-        supabase.from('eventos').select('id, fecha, rival, tipo, categorias(nombre)').eq('organization_id', organizationId).order('fecha', { ascending: false }).limit(20)
+        supabase.from('eventos').select('id, fecha, rival, tipo, jornada, categorias(nombre)').eq('organization_id', organizationId).order('fecha', { ascending: false }).limit(20)
     ]);
 
     return {

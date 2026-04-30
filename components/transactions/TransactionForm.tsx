@@ -477,9 +477,14 @@ export function TransactionForm({
                                                         </FormControl>
                                                         <SelectContent>
                                                             <SelectItem value="none">Ninguno</SelectItem>
-                                                            {formData.eventos?.map(e => (
-                                                                <SelectItem key={e.id} value={e.id}>{format(new Date(e.fecha + 'T12:00:00'), 'dd/MM/yyyy')} - {e.tipo} vs {e.rival || "ND"}</SelectItem>
-                                                            ))}
+                                                            {formData.eventos?.map(e => {
+                                                                const label = e.jornada
+                                                                    ? e.jornada
+                                                                    : `${format(new Date(e.fecha + 'T12:00:00'), 'dd/MM/yyyy')} - ${e.tipo} vs ${e.rival || "ND"}`;
+                                                                return (
+                                                                    <SelectItem key={e.id} value={e.id}>{label}</SelectItem>
+                                                                );
+                                                            })}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />

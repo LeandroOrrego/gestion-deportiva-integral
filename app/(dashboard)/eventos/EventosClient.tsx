@@ -47,6 +47,7 @@ export default function EventosClient({ eventos, categories }: EventosClientProp
                 fecha: formData.fecha,
                 tipo: formData.tipo,
                 categoria_id: formData.categoria_id,
+                jornada: formData.jornada,
                 rival: formData.rival,
                 resultado: formData.resultado,
             });

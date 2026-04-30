@@ -146,10 +146,12 @@ function JornadaTab({ orgId, eventos }: { orgId: string; eventos: any[] }) {
                         <SelectContent>
                             <SelectItem value="none">-- Seleccionar --</SelectItem>
                             {eventos.map(e => {
-                                const fechaStr = new Date(e.fecha + 'T12:00:00').toLocaleDateString("es-PY");
+                                const label = e.jornada
+                                    ? e.jornada
+                                    : `${new Date(e.fecha + 'T12:00:00').toLocaleDateString("es-PY")} - ${e.tipo} vs ${e.rival || "ND"} (${e.categorias?.nombre || "-"})`;
                                 return (
                                     <SelectItem key={e.id} value={e.id}>
-                                        {fechaStr} - {e.tipo} vs {e.rival || "ND"} ({e.categorias?.nombre || "-"})
+                                        {label}
                                     </SelectItem>
                                 );
                             })}
