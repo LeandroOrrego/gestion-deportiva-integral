@@ -37,10 +37,8 @@ import { Separator } from "@/components/ui/separator";
 
 const eventSchema = z.object({
     fecha: z.string().min(1, "La fecha es obligatoria"),
-    tipo: z.enum(["Partido", "Practica"], {
-        message: "Seleccioná un tipo de evento",
-    }),
-    categoria_id: z.string().min(1, "La categoría es obligatoria"),
+    tipo: z.enum(["Partido", "Practica"]).optional(),
+    categoria_id: z.string().optional(),
     jornada: z.string().optional(),
     rival: z.string().optional(),
     resultado: z.enum(["Victoria", "Empate", "Derrota"]).optional(),
@@ -68,7 +66,7 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
         resolver: zodResolver(eventSchema) as any,
         defaultValues: {
             fecha: new Date().toISOString().split("T")[0],
-            tipo: "Partido",
+            tipo: undefined,
             categoria_id: "",
             jornada: "",
             rival: "",
@@ -76,7 +74,7 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
         },
     });
 
-    const tipoSeleccionado = form.watch("tipo");
+    const tipoSeleccionado = form.watch("tipo") || "";
 
     const handleFormSubmit = async (values: EventFormValues) => {
         if (onSubmit) {
@@ -136,15 +134,17 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
                                         <FormLabel>Tipo de Evento</FormLabel>
                                         <Select
                                             onValueChange={field.onChange}
-                                            defaultValue={field.value}
-                                            value={field.value}
+                                            value={field.value || ""}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccioná tipo" />
+                                                    <SelectValue placeholder="Opcional" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
+                                                <SelectItem value="none">
+                                                    <span className="text-muted-foreground">Ninguno</span>
+                                                </SelectItem>
                                                 <SelectItem value="Partido">
                                                     <span className="flex items-center gap-2">
                                                         <Swords className="h-3.5 w-3.5" /> Partido
@@ -169,18 +169,20 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
                             name="categoria_id"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Plantel / Categoría</FormLabel>
+                                    <FormLabel>Plantel / Categoría (Opcional)</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
-                                        defaultValue={field.value}
-                                        value={field.value}
+                                        value={field.value || ""}
                                     >
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccioná un plantel" />
+                                                <SelectValue placeholder="Opcional" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
+                                            <SelectItem value="none">
+                                                <span className="text-muted-foreground">Ninguno</span>
+                                            </SelectItem>
                                             {categories.map((cat) => (
                                                 <SelectItem key={cat.id} value={cat.id}>
                                                     {cat.nombre}

@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 export type Evento = {
     id: string;
     fecha: string;
-    tipo: "Partido" | "Practica";
+    tipo: "Partido" | "Practica" | null;
     categoria_id: string | null;
     categorias: { id: string; nombre: string } | null;
     rival: string | null;
@@ -189,8 +189,8 @@ export async function getAsistenciaEvento(
 
 export async function saveEvento(formData: {
     fecha: string;
-    tipo: string;
-    categoria_id: string;
+    tipo?: string;
+    categoria_id?: string;
     rival?: string;
     resultado?: string;
     jornada?: string;
@@ -199,12 +199,16 @@ export async function saveEvento(formData: {
     const orgId = await getOrgId();
     if (!orgId) return { error: "No se pudo obtener la organización." };
 
+    // Normalizar valores "none" o vacíos a null
+    const tipo = (formData.tipo && formData.tipo !== "none") ? formData.tipo : null;
+    const categoriaId = (formData.categoria_id && formData.categoria_id !== "none") ? formData.categoria_id : null;
+
     const { data, error } = await supabase
         .from("eventos")
         .insert({
             fecha: formData.fecha,
-            tipo: formData.tipo,
-            categoria_id: formData.categoria_id || null,
+            tipo,
+            categoria_id: categoriaId,
             rival: formData.rival || null,
             resultado: formData.resultado || null,
             jornada: formData.jornada || null,
