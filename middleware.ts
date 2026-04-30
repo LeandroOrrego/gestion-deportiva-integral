@@ -36,17 +36,27 @@ export async function middleware(request: NextRequest) {
 
     const path = request.nextUrl.pathname
 
-    // Proteccion de rutas
-    // Si intenta acceder al dashboard sin usuario -> login
-    if (!user && path.startsWith('/dashboard')) {
+    // ── Rutas protegidas ─────────────────────────────────────────────────
+    // Todas las rutas bajo el route group (dashboard) se mapean a estas URLs.
+    // Deben estar protegidas para que el middleware refresque tokens expirados
+    // y redirija a /login si no hay sesión.
+    const protectedPrefixes = [
+        '/dashboard',
+        '/transacciones',
+        '/atletas',
+        '/eventos',
+        '/reportes',
+        '/configuracion',
+        '/premios',
+    ]
+
+    const isProtectedRoute = protectedPrefixes.some(prefix => path.startsWith(prefix))
+
+    if (!user && isProtectedRoute) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
     }
-
-    // Si intenta acceder a rutas protegidas root "/" (si redirige a dashboard) sin usuario
-    // Ajuste según requerimiento: "proteger todas las rutas (dashboard)/**"
-    // y "redirigir a /dashboard si hay sesión y accede a /login o /"
 
     if (user) {
         if (path === '/login' || path === '/') {
@@ -55,7 +65,6 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(url)
         }
     } else {
-        // Si no hay usuario y entra a root '/', redirigir a login
         if (path === '/') {
             const url = request.nextUrl.clone()
             url.pathname = '/login'

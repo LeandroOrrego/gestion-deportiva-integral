@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
     const supabase = useRef(createClient()).current;
+    const signingOutRef = useRef(false);
 
     useEffect(() => {
         let mounted = true;
@@ -117,6 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             async (event, session) => {
                 if (!mounted) return;
 
+                // If we're explicitly signing out, let signOut() handle everything
+                if (signingOutRef.current) return;
+
                 try {
                     if (session?.user) {
                         setUser(session.user);
@@ -144,20 +148,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
     }, [router, supabase]);
 
-    // ── Sign out (protected) ────────────────────────────────────────────
+
+
     const signOut = async () => {
+        if (signingOutRef.current) return; // Prevent double-calls
+        signingOutRef.current = true;
+
         try {
             await supabase.auth.signOut();
         } catch (err) {
             if (isAbortError(err)) {
-                // Session was already in an unstable state, force cleanup
                 console.warn('Sign-out aborted, forcing redirect.');
             } else {
                 console.error('Error during sign out:', err);
             }
         }
+
+        // Clean up local state immediately
+        setUser(null);
+        setProfile(null);
+
         // Always redirect regardless of error
         router.push('/login');
+        router.refresh();
+
+        // Reset flag after a short delay to allow re-login
+        setTimeout(() => { signingOutRef.current = false; }, 1000);
     };
 
     return (
