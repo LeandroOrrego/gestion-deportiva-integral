@@ -61,6 +61,8 @@ const transactionSchema = z.object({
     cuenta_id: z.string().min(1, "La cuenta es requerida"),
     comprobante_numero: z.string().optional(),
     descripcion: z.string().optional(),
+    evento_id: z.string().optional(),
+    cantidad: z.string().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -75,6 +77,7 @@ interface TransactionFormProps {
         categories: any[];
         accounts: any[];
         entities: any[];
+        eventos?: any[];
     };
 }
 
@@ -101,6 +104,8 @@ export function TransactionForm({
             cuenta_id: "",
             comprobante_numero: "",
             descripcion: "",
+            evento_id: "",
+            cantidad: "",
         },
     });
 
@@ -113,6 +118,8 @@ export function TransactionForm({
                 entidad_id: initialData.entidad_id || "",
                 comprobante_numero: initialData.comprobante_numero || "",
                 descripcion: initialData.descripcion || "",
+                evento_id: initialData.evento_id || "",
+                cantidad: initialData.cantidad ? String(initialData.cantidad) : "",
                 fecha: initialData.fecha?.split('T')[0] || new Date().toISOString().split('T')[0]
             });
         } else {
@@ -127,6 +134,8 @@ export function TransactionForm({
                 cuenta_id: "",
                 comprobante_numero: "",
                 descripcion: "",
+                evento_id: "",
+                cantidad: "",
             });
         }
     }, [initialData, form, open]);
@@ -439,6 +448,46 @@ export function TransactionForm({
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <FormField
+                                            control={form.control}
+                                            name="evento_id"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Evento / Partido (Opcional)</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger className="px-4 py-3 h-auto">
+                                                                <SelectValue placeholder="-" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">Ninguno</SelectItem>
+                                                            {formData.eventos?.map(e => (
+                                                                <SelectItem key={e.id} value={e.id}>{format(new Date(e.fecha + 'T12:00:00'), 'dd/MM/yyyy')} - {e.tipo} vs {e.rival || "ND"}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="cantidad"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Cantidad / Unidades</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="number" placeholder="Opcional" className="px-4 py-3 h-auto" {...field} />
+                                                    </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}

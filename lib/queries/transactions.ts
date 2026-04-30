@@ -13,6 +13,7 @@ export type TransactionFilter = {
     search?: string;
     excludeCajaMovements?: boolean;
     cuenta_id?: string;
+    evento_id?: string;
 }
 
 export async function getTransactions(organizationId: string, filters: TransactionFilter) {
@@ -76,6 +77,10 @@ export async function getTransactions(organizationId: string, filters: Transacti
         query = query.neq('transaction_types.nombre', 'Movimiento/Caja');
     }
 
+    if (filters.evento_id && filters.evento_id !== 'all') {
+        query = query.eq('evento_id', filters.evento_id);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -105,7 +110,8 @@ export async function getTransactionFormData(organizationId: string) {
         { data: types },
         { data: categories },
         { data: accounts },
-        { data: entities }
+        { data: entities },
+        { data: eventos }
     ] = await Promise.all([
         supabase
             .from('transaction_types')
@@ -115,14 +121,16 @@ export async function getTransactionFormData(organizationId: string) {
             .order('nombre'),
         supabase.from('categorias').select('id, nombre').eq('organization_id', organizationId),
         supabase.from('cuentas').select('id, nombre, saldo_inicial, activo').eq('organization_id', organizationId).eq('activo', true),
-        supabase.from('entidades').select('id, nombre, tipo_entidad_id').eq('organization_id', organizationId)
+        supabase.from('entidades').select('id, nombre, tipo_entidad_id').eq('organization_id', organizationId),
+        supabase.from('eventos').select('id, fecha, rival, tipo, categorias(nombre)').eq('organization_id', organizationId).order('fecha', { ascending: false }).limit(20)
     ]);
 
     return {
         types: types || [],
         categories: categories || [],
         accounts: accounts || [],
-        entities: entities || []
+        entities: entities || [],
+        eventos: eventos || []
     };
 }
 
@@ -177,7 +185,7 @@ export async function updateTransaction(id: string, data: any) {
     const validColumns = [
         'fecha', 'flow', 'monto', 'descripcion', 'fondo', 
         'comprobante_numero', 'cuenta_id', 'entidad_id', 
-        'transaction_type_id', 'category_id', 'atleta_id', 'event_id'
+        'transaction_type_id', 'category_id', 'atleta_id', 'evento_id', 'cantidad'
     ];
     
     const updateData: any = {};
@@ -190,6 +198,8 @@ export async function updateTransaction(id: string, data: any) {
     // Handle nullifications from UI
     if (updateData.category_id === "none" || updateData.category_id === "") updateData.category_id = null;
     if (updateData.entidad_id === "none" || updateData.entidad_id === "") updateData.entidad_id = null;
+    if (updateData.evento_id === "none" || updateData.evento_id === "") updateData.evento_id = null;
+    if (updateData.cantidad === "") updateData.cantidad = null;
 
     const { error } = await supabase
         .from('transacciones')
@@ -308,6 +318,10 @@ export async function getTransactionStats(organizationId: string, filters: Trans
 
     if (filters.excludeCajaMovements) {
         query = query.neq('transaction_types.nombre', 'Movimiento/Caja');
+    }
+
+    if (filters.evento_id && filters.evento_id !== 'all') {
+        query = query.eq('evento_id', filters.evento_id);
     }
 
     const { data } = await query;

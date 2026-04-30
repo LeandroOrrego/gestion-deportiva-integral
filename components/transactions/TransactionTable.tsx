@@ -5,6 +5,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Pencil, Search, MessageCircle, FileText, Trash2 } from "lucide-react";
+import { ReceiptPDFButton } from "./ReceiptPDFButton";
 
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -235,20 +236,7 @@ Generado por ClubManager PY`;
                                                 <MessageCircle className="h-4 w-4" />
                                             </Button>
 
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-100"
-                                                onClick={() => {
-                                                    toast({
-                                                        title: "En desarrollo",
-                                                        description: "Función de PDF próximamente.",
-                                                    });
-                                                }}
-                                                title="Generar PDF"
-                                            >
-                                                <FileText className="h-4 w-4" />
-                                            </Button>
+                                            <ReceiptPDFButton transaction={transaction} />
 
                                             <Button
                                                 variant="ghost"

@@ -43,12 +43,14 @@ export default function ReportesPage() {
     // Shared form data (accounts, categories)
     const [accounts, setAccounts] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
+    const [eventos, setEventos] = useState<any[]>([]);
 
     useEffect(() => {
         if (!orgId) return;
         getTransactionFormData(orgId).then((fd) => {
             setAccounts(fd.accounts);
             setCategories(fd.categories);
+            setEventos(fd.eventos || []);
         });
     }, [orgId]);
 
@@ -70,7 +72,7 @@ export default function ReportesPage() {
                 </TabsList>
 
                 <TabsContent value="jornada">
-                    <JornadaTab orgId={orgId} categories={categories} />
+                    <JornadaTab orgId={orgId} eventos={eventos} />
                 </TabsContent>
                 <TabsContent value="general">
                     <GeneralTab orgId={orgId} accounts={accounts} />
@@ -83,18 +85,21 @@ export default function ReportesPage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB 1 — Jornada Deportiva
 // ═══════════════════════════════════════════════════════════════════════════════
-function JornadaTab({ orgId, categories }: { orgId: string; categories: any[] }) {
-    const [fecha, setFecha] = useState(todayISO());
+function JornadaTab({ orgId, eventos }: { orgId: string; eventos: any[] }) {
+    const [eventoId, setEventoId] = useState("");
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (!orgId || !fecha) return;
+        if (!orgId || !eventoId || eventoId === "none") {
+            setData([]);
+            return;
+        }
         setLoading(true);
-        getTransactions(orgId, { startDate: fecha, endDate: fecha })
+        getTransactions(orgId, { evento_id: eventoId })
             .then(setData)
             .finally(() => setLoading(false));
-    }, [orgId, fecha]);
+    }, [orgId, eventoId]);
 
     const { totalIncome, totalExpense, byCategory } = useMemo(() => {
         const inc = data.filter(t => t.flow === "income" && t.status === "confirmed")
@@ -125,14 +130,26 @@ function JornadaTab({ orgId, categories }: { orgId: string; categories: any[] })
                 <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5">
                     <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">Fecha de Jornada:</span>
+                        <span className="text-sm font-medium">Seleccione el Evento:</span>
                     </div>
-                    <Input
-                        type="date"
-                        className="w-[180px] h-9"
-                        value={fecha}
-                        onChange={(e) => setFecha(e.target.value)}
-                    />
+                    
+                    <Select value={eventoId} onValueChange={setEventoId}>
+                        <SelectTrigger className="w-[300px] h-9">
+                            <SelectValue placeholder="Elegir partido/práctica" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">-- Seleccionar --</SelectItem>
+                            {eventos.map(e => {
+                                const fechaStr = new Date(e.fecha + 'T12:00:00').toLocaleDateString("es-PY");
+                                return (
+                                    <SelectItem key={e.id} value={e.id}>
+                                        {fechaStr} - {e.tipo} vs {e.rival || "ND"} ({e.categorias?.nombre || "-"})
+                                    </SelectItem>
+                                );
+                            })}
+                        </SelectContent>
+                    </Select>
+
                     {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                     <Badge variant="secondary" className="ml-auto">
                         {data.length} transacciones
