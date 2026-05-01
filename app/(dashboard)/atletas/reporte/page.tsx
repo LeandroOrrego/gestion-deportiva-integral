@@ -69,7 +69,10 @@ export default async function ReporteSaldosPage() {
             .filter(m => m.tipo === "HABER" && CONCEPTOS_PACTADO.includes(m.concepto))
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
         const totalPagado = movs
-            .filter(m => m.tipo === "DEBE")
+            .filter(m => m.tipo === "DEBE" && (
+                m.concepto?.toLowerCase().includes('pase') ||
+                m.concepto?.toLowerCase().includes('prima')
+            ))
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
         return { totalPactado, totalPagado, saldo: totalPactado - totalPagado };
     }
