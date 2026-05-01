@@ -78,7 +78,7 @@ export default async function ReporteSaldosPage() {
     }
 
     // Grand totals
-    let gPVict = 0, gPEmp = 0, gPDerr = 0, gVPract = 0, gPactado = 0, gPagado = 0, gSaldo = 0;
+    let gPactado = 0, gPagado = 0, gSaldo = 0;
 
     return (
         <div className="flex-1 p-8 pt-6 print:p-0">
@@ -104,22 +104,16 @@ export default async function ReporteSaldosPage() {
                     )}
 
                     {keys.map(cat => {
-                        let sPVict = 0, sPEmp = 0, sPDerr = 0, sVPract = 0, sPactado = 0, sPagado = 0, sSaldo = 0;
+                        let sPactado = 0, sPagado = 0, sSaldo = 0;
 
                         const rows = agrupados[cat].map(a => {
-                            const ac = a.acuerdo_2026;
                             const s = getSaldo(a.id);
-                            sPVict += Number(ac?.premio_victoria) || 0;
-                            sPEmp += Number(ac?.premio_empate) || 0;
-                            sPDerr += Number(ac?.premio_derrota) || 0;
-                            sVPract += Number(ac?.viatico_practica) || 0;
                             sPactado += s.totalPactado;
                             sPagado += s.totalPagado;
                             sSaldo += s.saldo;
-                            return { a, ac, s };
+                            return { a, s };
                         });
 
-                        gPVict += sPVict; gPEmp += sPEmp; gPDerr += sPDerr; gVPract += sVPract;
                         gPactado += sPactado; gPagado += sPagado; gSaldo += sSaldo;
 
                         return (
@@ -136,17 +130,13 @@ export default async function ReporteSaldosPage() {
                                             <tr className="border-b border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
                                                 <th className="py-2 px-2 font-semibold">Atleta</th>
                                                 <th className="py-2 px-2 font-semibold">C.I.</th>
-                                                <th className="py-2 px-2 text-right font-semibold">P. Victoria</th>
-                                                <th className="py-2 px-2 text-right font-semibold">P. Empate</th>
-                                                <th className="py-2 px-2 text-right font-semibold">P. Derrota</th>
-                                                <th className="py-2 px-2 text-right font-semibold">V. Práctica</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-transparent">Total Pactado</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-emerald-50 dark:bg-emerald-950/30 print:bg-transparent">Total Pagado</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-amber-50 dark:bg-amber-950/30 print:bg-transparent">Saldo</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {rows.map(({ a, ac, s }) => {
+                                            {rows.map(({ a, s }) => {
                                                 const saldoColor = s.saldo > 0
                                                     ? "text-red-600 font-bold"
                                                     : "text-emerald-600";
@@ -157,10 +147,6 @@ export default async function ReporteSaldosPage() {
                                                     >
                                                         <td className="py-1.5 px-2 font-medium">{a.nombre_completo}</td>
                                                         <td className="py-1.5 px-2 font-mono">{a.documento || "-"}</td>
-                                                        <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_victoria ?? 0)}</td>
-                                                        <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_empate ?? 0)}</td>
-                                                        <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_derrota ?? 0)}</td>
-                                                        <td className="py-1.5 px-2 text-right">{fmt(ac?.viatico_practica ?? 0)}</td>
                                                         <td className="py-1.5 px-2 text-right font-semibold text-blue-600">{fmt(s.totalPactado)}</td>
                                                         <td className="py-1.5 px-2 text-right font-semibold text-emerald-600">{fmt(s.totalPagado)}</td>
                                                         <td className={`py-1.5 px-2 text-right ${saldoColor}`}>{fmt(s.saldo)}</td>
@@ -171,10 +157,6 @@ export default async function ReporteSaldosPage() {
                                         <tfoot className="bg-zinc-100 dark:bg-zinc-900 font-bold">
                                             <tr>
                                                 <td colSpan={2} className="py-2 px-2 uppercase">Subtotal {cat}</td>
-                                                <td className="py-2 px-2 text-right">{fmt(sPVict)}</td>
-                                                <td className="py-2 px-2 text-right">{fmt(sPEmp)}</td>
-                                                <td className="py-2 px-2 text-right">{fmt(sPDerr)}</td>
-                                                <td className="py-2 px-2 text-right">{fmt(sVPract)}</td>
                                                 <td className="py-2 px-2 text-right text-blue-700">{fmt(sPactado)}</td>
                                                 <td className="py-2 px-2 text-right text-emerald-700">{fmt(sPagado)}</td>
                                                 <td className={`py-2 px-2 text-right ${sSaldo > 0 ? "text-red-700" : "text-emerald-700"}`}>
@@ -194,10 +176,6 @@ export default async function ReporteSaldosPage() {
                                 <tbody>
                                     <tr>
                                         <td colSpan={2} className="py-3 px-2 uppercase text-sm">Total General</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gPVict)}</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gPEmp)}</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gPDerr)}</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gVPract)}</td>
                                         <td className="py-3 px-2 text-right">{fmt(gPactado)}</td>
                                         <td className="py-3 px-2 text-right text-emerald-300">{fmt(gPagado)}</td>
                                         <td className={`py-3 px-2 text-right ${gSaldo > 0 ? "text-red-300" : gSaldo === 0 ? "text-emerald-300" : "text-blue-300"}`}>
