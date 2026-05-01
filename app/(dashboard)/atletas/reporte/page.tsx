@@ -51,19 +51,17 @@ export default async function ReporteSaldosPage() {
         return new Intl.NumberFormat("es-PY").format(n);
     };
 
-    function getSaldo(atletaId: string) {
+    function getSaldo(atletaId: string, ac: any) {
         const movs = movsByAtleta.get(atletaId) || [];
-        const totalHaber = movs
-            .filter(m => m.tipo === "HABER")
-            .reduce((s: number, m: any) => s + Number(m.monto), 0);
+        const totalPactado = (Number(ac?.costo_pase) || 0) + (Number(ac?.prima_inicial) || 0);
         const totalPagado = movs
             .filter(m => m.tipo === "DEBE")
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
-        return { totalHaber, totalPagado, saldo: totalHaber - totalPagado };
+        return { totalPactado, totalPagado, saldo: totalPactado - totalPagado };
     }
 
     // Grand totals
-    let gPVict = 0, gPEmp = 0, gPDerr = 0, gVPract = 0, gHaber = 0, gPagado = 0, gSaldo = 0;
+    let gPVict = 0, gPEmp = 0, gPDerr = 0, gVPract = 0, gPactado = 0, gPagado = 0, gSaldo = 0;
 
     return (
         <div className="flex-1 p-8 pt-6 print:p-0">
@@ -89,23 +87,23 @@ export default async function ReporteSaldosPage() {
                     )}
 
                     {keys.map(cat => {
-                        let sPVict = 0, sPEmp = 0, sPDerr = 0, sVPract = 0, sHaber = 0, sPagado = 0, sSaldo = 0;
+                        let sPVict = 0, sPEmp = 0, sPDerr = 0, sVPract = 0, sPactado = 0, sPagado = 0, sSaldo = 0;
 
                         const rows = agrupados[cat].map(a => {
                             const ac = a.acuerdo_2026;
-                            const s = getSaldo(a.id);
+                            const s = getSaldo(a.id, ac);
                             sPVict += Number(ac?.premio_victoria) || 0;
                             sPEmp += Number(ac?.premio_empate) || 0;
                             sPDerr += Number(ac?.premio_derrota) || 0;
                             sVPract += Number(ac?.viatico_practica) || 0;
-                            sHaber += s.totalHaber;
+                            sPactado += s.totalPactado;
                             sPagado += s.totalPagado;
                             sSaldo += s.saldo;
                             return { a, ac, s };
                         });
 
                         gPVict += sPVict; gPEmp += sPEmp; gPDerr += sPDerr; gVPract += sVPract;
-                        gHaber += sHaber; gPagado += sPagado; gSaldo += sSaldo;
+                        gPactado += sPactado; gPagado += sPagado; gSaldo += sSaldo;
 
                         return (
                             <div key={cat} className="print:break-inside-avoid">
@@ -125,7 +123,7 @@ export default async function ReporteSaldosPage() {
                                                 <th className="py-2 px-2 text-right font-semibold">P. Empate</th>
                                                 <th className="py-2 px-2 text-right font-semibold">P. Derrota</th>
                                                 <th className="py-2 px-2 text-right font-semibold">V. Práctica</th>
-                                                <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-transparent">Total Haber</th>
+                                                <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-transparent">Total Pactado</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-emerald-50 dark:bg-emerald-950/30 print:bg-transparent">Total Pagado</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-amber-50 dark:bg-amber-950/30 print:bg-transparent">Saldo</th>
                                             </tr>
@@ -146,7 +144,7 @@ export default async function ReporteSaldosPage() {
                                                         <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_empate ?? 0)}</td>
                                                         <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_derrota ?? 0)}</td>
                                                         <td className="py-1.5 px-2 text-right">{fmt(ac?.viatico_practica ?? 0)}</td>
-                                                        <td className="py-1.5 px-2 text-right font-semibold text-blue-600">{fmt(s.totalHaber)}</td>
+                                                        <td className="py-1.5 px-2 text-right font-semibold text-blue-600">{fmt(s.totalPactado)}</td>
                                                         <td className="py-1.5 px-2 text-right font-semibold text-emerald-600">{fmt(s.totalPagado)}</td>
                                                         <td className={`py-1.5 px-2 text-right ${saldoColor}`}>{fmt(s.saldo)}</td>
                                                     </tr>
@@ -160,7 +158,7 @@ export default async function ReporteSaldosPage() {
                                                 <td className="py-2 px-2 text-right">{fmt(sPEmp)}</td>
                                                 <td className="py-2 px-2 text-right">{fmt(sPDerr)}</td>
                                                 <td className="py-2 px-2 text-right">{fmt(sVPract)}</td>
-                                                <td className="py-2 px-2 text-right text-blue-700">{fmt(sHaber)}</td>
+                                                <td className="py-2 px-2 text-right text-blue-700">{fmt(sPactado)}</td>
                                                 <td className="py-2 px-2 text-right text-emerald-700">{fmt(sPagado)}</td>
                                                 <td className={`py-2 px-2 text-right ${sSaldo > 0 ? "text-red-700" : "text-emerald-700"}`}>
                                                     {fmt(sSaldo)}
@@ -183,7 +181,7 @@ export default async function ReporteSaldosPage() {
                                         <td className="py-3 px-2 text-right">{fmt(gPEmp)}</td>
                                         <td className="py-3 px-2 text-right">{fmt(gPDerr)}</td>
                                         <td className="py-3 px-2 text-right">{fmt(gVPract)}</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gHaber)}</td>
+                                        <td className="py-3 px-2 text-right">{fmt(gPactado)}</td>
                                         <td className="py-3 px-2 text-right text-emerald-300">{fmt(gPagado)}</td>
                                         <td className={`py-3 px-2 text-right ${gSaldo > 0 ? "text-red-300" : gSaldo === 0 ? "text-emerald-300" : "text-blue-300"}`}>
                                             {fmt(gSaldo)}
