@@ -334,36 +334,42 @@ export default function TransactionsPage() {
     };
 
     const handleExportExcel = () => {
-        const rows = data.map(t => ({
-            'Fecha': formatDate(t.fecha),
-            'Descripción / Razón': t.entidades?.nombre || t.descripcion || '-',
-            'Categoría': t.transaction_types?.nombre || '-',
-            'Plantel': t.categorias?.nombre || '-',
-            'Cuenta': t.cuentas?.nombre || '-',
-            'Fondo': t.fondo || '-',
-            'Tipo': t.flow === 'income' ? 'Ingreso' : 'Egreso',
-            'Monto': Number(t.monto),
-            'Comprobante Nº': t.comprobante_numero || '-',
-            'Estado': t.status || '-',
-            'Jornada': t.eventos?.jornada ?? '-',
-            'Temporada': (t as any).temporada || '-',
-        }));
+        const sorted = [...data].sort((a, b) => a.fecha.localeCompare(b.fecha));
+        let saldoAcum = 0;
+        const rows = sorted.map(t => {
+            const entrada = t.flow === 'income' ? Number(t.monto) : '';
+            const salida  = t.flow === 'expense' ? Number(t.monto) : '';
+            saldoAcum += (t.flow === 'income' ? Number(t.monto) : -Number(t.monto));
+            return {
+                'FECHA':        formatDate(t.fecha),
+                'GRUPO':        t.fondo || '-',
+                'CATEGORIA':    t.transaction_types?.nombre || '-',
+                'PLANTEL':      t.categorias?.nombre || '-',
+                'RAZON':        t.entidades?.nombre || '-',
+                'JORNADA':      (t as any).jornadas?.numero ?? '-',
+                'DESCRIPCION':  t.descripcion || '-',
+                'COMPROBANTE':  t.comprobante_numero || '-',
+                'CUENTA':       t.cuentas?.nombre || '-',
+                'ENTRADA':      entrada,
+                'SALIDA':       salida,
+                'SALDO':        saldoAcum,
+            };
+        });
 
         const ws = XLSX.utils.json_to_sheet(rows);
-        // Ancho de columnas
         ws['!cols'] = [
-            { wch: 12 }, // Fecha
-            { wch: 35 }, // Descripción
-            { wch: 25 }, // Categoría
-            { wch: 15 }, // Plantel
-            { wch: 18 }, // Cuenta
-            { wch: 14 }, // Fondo
-            { wch: 10 }, // Tipo
-            { wch: 14 }, // Monto
-            { wch: 14 }, // Comprobante
-            { wch: 12 }, // Estado
-            { wch: 10 }, // Jornada
-            { wch: 10 }, // Temporada
+            { wch: 12 }, // FECHA
+            { wch: 16 }, // GRUPO
+            { wch: 25 }, // CATEGORIA
+            { wch: 14 }, // PLANTEL
+            { wch: 30 }, // RAZON
+            { wch: 10 }, // JORNADA
+            { wch: 30 }, // DESCRIPCION
+            { wch: 14 }, // COMPROBANTE
+            { wch: 18 }, // CUENTA
+            { wch: 14 }, // ENTRADA
+            { wch: 14 }, // SALIDA
+            { wch: 16 }, // SALDO
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Transacciones');
