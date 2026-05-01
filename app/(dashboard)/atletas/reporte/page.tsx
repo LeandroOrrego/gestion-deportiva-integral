@@ -10,6 +10,16 @@ export default async function ReporteSaldosPage() {
 
     const atletas = await getAthletes();
 
+    // Diagnóstico: cuántos atletas tienen acuerdo 2026 con pase o prima > 0
+    const conAcuerdo = atletas.filter(a => a.acuerdo_2026 !== null);
+    const conPactado = atletas.filter(a =>
+        (Number(a.acuerdo_2026?.costo_pase) || 0) + (Number(a.acuerdo_2026?.prima_inicial) || 0) > 0
+    );
+    console.log(`[reporte/saldos] Total atletas: ${atletas.length} | Con acuerdo_2026: ${conAcuerdo.length} | Con pactado > 0: ${conPactado.length}`);
+    conPactado.forEach(a => {
+        console.log(`  → ${a.nombre_completo} | pase: ${a.acuerdo_2026?.costo_pase} | prima: ${a.acuerdo_2026?.prima_inicial}`);
+    });
+
     let movimientos: any[] = [];
     if (user) {
         const { data: perfil } = await supabase
@@ -51,9 +61,11 @@ export default async function ReporteSaldosPage() {
         return new Intl.NumberFormat("es-PY").format(n);
     };
 
-    function getSaldo(atletaId: string, ac: any) {
+    function getSaldo(atletaId: string) {
         const movs = movsByAtleta.get(atletaId) || [];
-        const totalPactado = (Number(ac?.costo_pase) || 0) + (Number(ac?.prima_inicial) || 0);
+        const totalPactado = movs
+            .filter(m => m.tipo === "HABER")
+            .reduce((s: number, m: any) => s + Number(m.monto), 0);
         const totalPagado = movs
             .filter(m => m.tipo === "DEBE")
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
@@ -91,7 +103,7 @@ export default async function ReporteSaldosPage() {
 
                         const rows = agrupados[cat].map(a => {
                             const ac = a.acuerdo_2026;
-                            const s = getSaldo(a.id, ac);
+                            const s = getSaldo(a.id);
                             sPVict += Number(ac?.premio_victoria) || 0;
                             sPEmp += Number(ac?.premio_empate) || 0;
                             sPDerr += Number(ac?.premio_derrota) || 0;
