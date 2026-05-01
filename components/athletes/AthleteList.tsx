@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     Plus,
@@ -14,6 +15,7 @@ import {
     Filter,
     Trash2,
     BarChart2,
+    ClipboardList,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -172,6 +174,12 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract, onGe
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" asChild className="w-full sm:w-auto gap-2">
+                        <Link href="/atletas/reporte">
+                            <ClipboardList className="h-4 w-4" />
+                            Reporte de Saldos
+                        </Link>
+                    </Button>
                     {onGenerateReport && (
                         <Button
                             variant="outline"
