@@ -17,6 +17,7 @@ export type AtletaConAcuerdo = {
     posicion: string | null;
     status: string;
     category_id: string | null;
+    entidad_id: string | null;
     categorias: { id: string; nombre: string } | null;
     banco: string | null;
     tipo_cuenta: string | null;
@@ -133,6 +134,7 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
             posicion,
             status,
             category_id,
+            entidad_id,
             banco,
             tipo_cuenta,
             numero_cuenta,
@@ -187,6 +189,7 @@ export async function getAthletes(): Promise<AtletaConAcuerdo[]> {
             posicion: row.posicion ?? null,
             status: row.status ?? "active",
             category_id: row.category_id ?? null,
+            entidad_id: row.entidad_id ?? null,
             categorias: row.categorias ?? null,
             banco: row.banco ?? null,
             tipo_cuenta: row.tipo_cuenta ?? null,
@@ -217,6 +220,7 @@ export async function getAthleteProfile(id: string): Promise<AtletaConAcuerdo | 
             posicion,
             status,
             category_id,
+            entidad_id,
             banco,
             tipo_cuenta,
             numero_cuenta,

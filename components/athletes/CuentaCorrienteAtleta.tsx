@@ -133,19 +133,19 @@ interface MovimientoDialogProps {
     tipo: MovimientoTipo;
     atletaId: string;
     atletaNombre: string;
+    atletaEntidadId?: string | null;
     atletaCategoryId?: string | null;
     atletaCategoryName?: string | null;
     accounts?: any[];
     transactionTypes?: any[];
-    entities?: any[];
     eventos?: any[];
 }
 
 function MovimientoDialog({
     open, onOpenChange, tipo, atletaId,
-    atletaNombre, atletaCategoryId, atletaCategoryName,
+    atletaNombre, atletaEntidadId, atletaCategoryId, atletaCategoryName,
     accounts = [], transactionTypes = [],
-    entities = [], eventos = [],
+    eventos = [],
 }: MovimientoDialogProps) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
@@ -154,17 +154,11 @@ function MovimientoDialog({
     const [montoDisplay, setMontoDisplay] = useState("");
     const [cuentaId, setCuentaId] = useState("");
     const [transactionTypeId, setTransactionTypeId] = useState("");
-    const [entidadId, setEntidadId] = useState("");
     const [eventoId, setEventoId] = useState("");
     const [comprobanteNumero, setComprobanteNumero] = useState("");
     const [error, setError] = useState("");
 
     const isDebe = tipo === "DEBE";
-
-    // Auto-find entidad matching athlete name
-    const matchedEntity = entities.find(
-        (e: any) => e.nombre?.toLowerCase() === atletaNombre?.toLowerCase()
-    );
 
     const handleSave = () => {
         if (isDebe) {
@@ -181,9 +175,6 @@ function MovimientoDialog({
             return;
         }
 
-        // Resolve entidad_id: auto-matched or manually selected
-        const resolvedEntidadId = matchedEntity?.id || entidadId || undefined;
-
         startTransition(async () => {
             const { error } = await saveMovimiento({
                 atleta_id: atletaId,
@@ -193,7 +184,7 @@ function MovimientoDialog({
                 monto,
                 cuenta_id: isDebe ? cuentaId : undefined,
                 transaction_type_id: isDebe ? transactionTypeId : undefined,
-                entidad_id: isDebe ? resolvedEntidadId : undefined,
+                entidad_id: isDebe ? (atletaEntidadId || undefined) : undefined,
                 evento_id: isDebe && eventoId ? eventoId : undefined,
                 comprobante_numero: isDebe && comprobanteNumero.trim() ? comprobanteNumero.trim() : undefined,
                 category_id: isDebe && atletaCategoryId ? atletaCategoryId : undefined,
@@ -216,7 +207,6 @@ function MovimientoDialog({
                 setMontoDisplay("");
                 setCuentaId("");
                 setTransactionTypeId("");
-                setEntidadId("");
                 setEventoId("");
                 setComprobanteNumero("");
                 setError("");
@@ -319,29 +309,18 @@ function MovimientoDialog({
                     {/* Conditional Dropdowns for DEBE */}
                     {isDebe && (
                         <div className="space-y-4">
-                            {/* Razón/Entidad — pre-filled or selector */}
+                            {/* Razón/Entidad — pre-filled from athlete's entidad_id */}
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium">Razón / Entidad</label>
-                                {matchedEntity ? (
-                                    <Input
-                                        value={atletaNombre}
-                                        disabled
-                                        className="h-10 bg-muted/50"
-                                    />
+                                <Input
+                                    value={atletaNombre}
+                                    disabled
+                                    className="h-10 bg-muted/50"
+                                />
+                                {atletaEntidadId ? (
+                                    <p className="text-[10px] text-muted-foreground">Vinculado a la entidad registrada del atleta</p>
                                 ) : (
-                                    <Select value={entidadId} onValueChange={(val) => { setEntidadId(val); setError(""); }}>
-                                        <SelectTrigger className="h-10">
-                                            <SelectValue placeholder={atletaNombre || "Seleccione..."} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {entities.map((ent: any) => (
-                                                <SelectItem key={ent.id} value={ent.id}>{ent.nombre}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                                {matchedEntity && (
-                                    <p className="text-[10px] text-muted-foreground">Vinculado automáticamente a la entidad del atleta</p>
+                                    <p className="text-[10px] text-amber-600">⚠ Este atleta no tiene entidad asignada</p>
                                 )}
                             </div>
 
@@ -472,12 +451,12 @@ function MovimientoDialog({
 interface CuentaCorrienteAtletaProps {
     atletaId: string;
     atletaNombre: string;
+    atletaEntidadId?: string | null;
     atletaCategoryId?: string | null;
     atletaCategoryName?: string | null;
     movimientos: MovimientoAtleta[];
     accounts?: any[];
     transactionTypes?: any[];
-    entities?: any[];
     eventos?: any[];
 }
 
@@ -488,12 +467,12 @@ interface CuentaCorrienteAtletaProps {
 export function CuentaCorrienteAtleta({
     atletaId,
     atletaNombre,
+    atletaEntidadId,
     atletaCategoryId,
     atletaCategoryName,
     movimientos,
     accounts = [],
     transactionTypes = [],
-    entities = [],
     eventos = [],
 }: CuentaCorrienteAtletaProps) {
     const { toast } = useToast();
@@ -781,11 +760,11 @@ export function CuentaCorrienteAtleta({
                 tipo={dialogTipo}
                 atletaId={atletaId}
                 atletaNombre={atletaNombre}
+                atletaEntidadId={atletaEntidadId}
                 atletaCategoryId={atletaCategoryId}
                 atletaCategoryName={atletaCategoryName}
                 accounts={accounts}
                 transactionTypes={transactionTypes}
-                entities={entities}
                 eventos={eventos}
             />
         </div>

@@ -36,7 +36,6 @@ export default async function AthleteProfilePage({ params }: AthleteProfilePageP
     const { data: { user } } = await supabase.auth.getUser();
     let accounts: any[] = [];
     let transactionTypes: any[] = [];
-    let entities: any[] = [];
     let eventos: any[] = [];
     
     if (user) {
@@ -45,7 +44,6 @@ export default async function AthleteProfilePage({ params }: AthleteProfilePageP
             const formData = await getTransactionFormData(perfil.organization_id);
             accounts = formData.accounts;
             transactionTypes = formData.types;
-            entities = formData.entities;
             eventos = formData.eventos;
         }
     }
@@ -227,12 +225,12 @@ export default async function AthleteProfilePage({ params }: AthleteProfilePageP
                     <CuentaCorrienteAtleta
                         atletaId={athlete.id}
                         atletaNombre={athlete.nombre_completo}
+                        atletaEntidadId={athlete.entidad_id}
                         atletaCategoryId={athlete.category_id}
                         atletaCategoryName={athlete.categorias?.nombre}
                         movimientos={movimientos}
                         accounts={accounts}
                         transactionTypes={transactionTypes}
-                        entities={entities}
                         eventos={eventos}
                     />
                 </TabsContent>
