@@ -14,6 +14,7 @@ export type TransactionFilter = {
     excludeCajaMovements?: boolean;
     cuenta_id?: string;
     evento_id?: string;
+    temporada?: string; // '2025' | '2026' | 'todas'
 }
 
 export async function getTransactions(organizationId: string, filters: TransactionFilter) {
@@ -79,6 +80,10 @@ export async function getTransactions(organizationId: string, filters: Transacti
 
     if (filters.evento_id && filters.evento_id !== 'all') {
         query = query.eq('evento_id', filters.evento_id);
+    }
+
+    if (filters.temporada && filters.temporada !== 'todas') {
+        query = query.eq('temporada', filters.temporada);
     }
 
     const { data, error } = await query;
@@ -299,13 +304,16 @@ export async function getTransactionStats(organizationId: string, filters: Trans
         endDate = new Date(year, month, 0).toISOString().split('T')[0];
     }
 
+    const EXCLUDED_TYPE_NAMES = ['Movimiento/Caja', 'Transferencias'];
+
     let query = supabase
         .from('transacciones')
-        .select('monto, flow, transaction_types!inner(nombre)')
+        .select('monto, flow, es_transferencia, transaction_types!inner(nombre)')
         .eq('organization_id', organizationId)
         .gte('fecha', startDate)
         .lte('fecha', endDate)
         .eq('status', 'confirmed')
+        .eq('es_transferencia', false)
         .is('deleted_at', null);
 
     if (filters.fondo && filters.fondo !== 'all') {
@@ -316,18 +324,19 @@ export async function getTransactionStats(organizationId: string, filters: Trans
         query = query.eq('flow', filters.flow);
     }
 
-    if (filters.excludeCajaMovements) {
-        query = query.neq('transaction_types.nombre', 'Movimiento/Caja');
-    }
-
     if (filters.evento_id && filters.evento_id !== 'all') {
         query = query.eq('evento_id', filters.evento_id);
     }
 
+    if (filters.temporada && filters.temporada !== 'todas') {
+        query = query.eq('temporada', filters.temporada);
+    }
+
     const { data } = await query;
 
-    const income = data?.filter(t => t.flow === 'income').reduce((acc, curr) => acc + Number(curr.monto), 0) || 0;
-    const expense = data?.filter(t => t.flow === 'expense').reduce((acc, curr) => acc + Number(curr.monto), 0) || 0;
+    const valid = (data || []).filter((t: any) => !EXCLUDED_TYPE_NAMES.includes(t.transaction_types?.nombre));
+    const income = valid.filter((t: any) => t.flow === 'income').reduce((acc: number, curr: any) => acc + Number(curr.monto), 0);
+    const expense = valid.filter((t: any) => t.flow === 'expense').reduce((acc: number, curr: any) => acc + Number(curr.monto), 0);
 
     return {
         income,

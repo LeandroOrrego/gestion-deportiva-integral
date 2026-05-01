@@ -1,23 +1,30 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { getTransactions, getTransactionFormData, getTransactionStats, type TransactionFilter } from "@/lib/queries/transactions";
-import { getSaldosPorCuenta } from "@/lib/queries/dashboard";
+import { getSaldosPorCuenta, getSaldoInicialCuentas } from "@/lib/queries/dashboard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, TrendingDown, Wallet, Landmark, Users, Tag, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Landmark, Users, Tag, Loader2, ChevronDown, ChevronRight, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { todayLocal, firstOfMonthLocal } from "@/lib/utils/date";
 
 function fmtGs(v: number) { return `Gs. ${new Intl.NumberFormat("es-PY").format(Math.round(v))}`; }
 
+const EXCLUDED_TYPES = new Set(['Movimiento/Caja', 'Transferencias']);
+
 type CatRow = { nombre: string; total: number; count: number; items: { desc: string; monto: number }[] };
 
 function buildMap(txns: any[], flow: string): CatRow[] {
     const map = new Map<string, CatRow>();
-    txns.filter(t => t.status === "confirmed" && t.flow === flow && !t.es_transferencia).forEach(t => {
+    txns.filter(t =>
+        t.status === "confirmed" &&
+        t.flow === flow &&
+        !t.es_transferencia &&
+        !EXCLUDED_TYPES.has(t.transaction_types?.nombre)
+    ).forEach(t => {
         const cat = t.transaction_types?.nombre || "Sin categoría";
         if (!map.has(cat)) map.set(cat, { nombre: cat, total: 0, count: 0, items: [] });
         const g = map.get(cat)!;
@@ -89,12 +96,14 @@ function KPICard({ label, value, icon: Icon, color }: { label: string; value: nu
 export default function GeneralTab({ orgId }: { orgId: string }) {
     const [accounts, setAccounts] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
+    const [temporada, setTemporada] = useState("todas");
     const [startDate, setStartDate] = useState(firstOfMonthLocal());
     const [endDate, setEndDate] = useState(todayLocal());
     const [cuentaId, setCuentaId] = useState("all");
     const [fondoFilter, setFondoFilter] = useState("all");
     const [plantelFilter, setPlantelFilter] = useState("all");
     const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
+    const [saldoInicial, setSaldoInicial] = useState(0);
     const [saldos, setSaldos] = useState<any[]>([]);
     const [rawData, setRawData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -104,17 +113,42 @@ export default function GeneralTab({ orgId }: { orgId: string }) {
         getTransactionFormData(orgId).then(fd => { setAccounts(fd.accounts); setCategories(fd.categories); });
     }, [orgId]);
 
+    // Auto-set date range when temporada changes
+    useEffect(() => {
+        if (temporada === '2025') {
+            setStartDate('2025-01-01');
+            setEndDate('2026-01-31');
+        } else if (temporada === '2026') {
+            setStartDate('2026-02-01');
+            setEndDate(todayLocal());
+        }
+    }, [temporada]);
+
     useEffect(() => {
         if (!orgId) return;
         setLoading(true);
-        const filters: TransactionFilter = { startDate, endDate, cuenta_id: cuentaId, fondo: fondoFilter as any };
-        Promise.all([getTransactionStats(orgId, filters), getSaldosPorCuenta(orgId), getTransactions(orgId, filters)])
-            .then(([s, c, txns]) => { setStats(s); setSaldos(c); setRawData(txns); })
-            .finally(() => setLoading(false));
-    }, [orgId, startDate, endDate, cuentaId, fondoFilter]);
+        const filters: TransactionFilter = {
+            startDate,
+            endDate,
+            cuenta_id: cuentaId,
+            fondo: fondoFilter as any,
+            ...(temporada !== 'todas' && { temporada }),
+        };
+        Promise.all([
+            getTransactionStats(orgId, filters),
+            getSaldosPorCuenta(orgId),
+            getTransactions(orgId, filters),
+            temporada === '2026' ? getSaldoInicialCuentas(orgId) : Promise.resolve(0),
+        ]).then(([s, c, txns, saldoIni]) => {
+            setStats(s);
+            setSaldos(c);
+            setRawData(txns);
+            setSaldoInicial(saldoIni);
+        }).finally(() => setLoading(false));
+    }, [orgId, startDate, endDate, cuentaId, fondoFilter, temporada]);
 
     const filtered = useMemo(() => {
-        let d = rawData.filter(t => !t.es_transferencia);
+        let d = rawData.filter(t => !t.es_transferencia && !EXCLUDED_TYPES.has(t.transaction_types?.nombre));
         if (plantelFilter !== "all") d = d.filter(t => t.categorias?.nombre === plantelFilter);
         return d;
     }, [rawData, plantelFilter]);
@@ -141,6 +175,15 @@ export default function GeneralTab({ orgId }: { orgId: string }) {
     return (
         <div className="space-y-5">
             <Card><CardContent className="flex flex-col sm:flex-row items-start sm:items-end gap-4 p-5 flex-wrap">
+                <div className="space-y-1"><span className="text-xs font-semibold uppercase text-muted-foreground">Temporada</span>
+                    <Select value={temporada} onValueChange={setTemporada}><SelectTrigger className="w-[130px] h-9"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="todas">Todas</SelectItem>
+                            <SelectItem value="2025">2025</SelectItem>
+                            <SelectItem value="2026">2026</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
                 <div className="space-y-1"><span className="text-xs font-semibold uppercase text-muted-foreground">Desde</span>
                     <Input type="date" className="w-[160px] h-9" value={startDate} onChange={e => setStartDate(e.target.value)}/></div>
                 <div className="space-y-1"><span className="text-xs font-semibold uppercase text-muted-foreground">Hasta</span>
@@ -157,10 +200,24 @@ export default function GeneralTab({ orgId }: { orgId: string }) {
                 {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-end mb-2"/>}
             </CardContent></Card>
 
+            {temporada === '2026' && (
+                <Card className="border border-blue-200 dark:border-blue-800">
+                    <CardContent className="flex items-center justify-between p-5 bg-blue-50 dark:bg-blue-950/30">
+                        <div className="space-y-1">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Saldo Inicial (remanente 2025)</p>
+                            <p className="text-2xl font-extrabold tabular-nums text-blue-600 dark:text-blue-400">{fmtGs(saldoInicial)}</p>
+                        </div>
+                        <div className="h-11 w-11 rounded-full flex items-center justify-center bg-white/60 dark:bg-black/20 text-blue-600">
+                            <CalendarDays className="h-5 w-5"/>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <KPICard label="Total Ingresos" value={stats.income} icon={TrendingUp} color="green"/>
                 <KPICard label="Total Egresos" value={stats.expense} icon={TrendingDown} color="red"/>
-                <KPICard label="Saldo Período" value={stats.balance} icon={Wallet} color="blue"/>
+                <KPICard label="Saldo del Período" value={stats.balance} icon={Wallet} color="blue"/>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

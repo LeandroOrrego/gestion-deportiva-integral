@@ -145,6 +145,17 @@ export async function getUltimasTransacciones(organizationId: string, limite = 8
     return data || [];
 }
 
+export async function getSaldoInicialCuentas(organizationId: string): Promise<number> {
+    const supabase = await createClient();
+    const { data } = await supabase
+        .from('cuentas')
+        .select('saldo_inicial')
+        .eq('organization_id', organizationId)
+        .eq('activo', true)
+        .is('deleted_at', null);
+    return data?.reduce((sum, c) => sum + Number(c.saldo_inicial), 0) || 0;
+}
+
 export async function getSaldosPorCuenta(organizationId: string) {
     const supabase = await createClient();
 
