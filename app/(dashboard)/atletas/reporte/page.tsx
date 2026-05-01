@@ -61,10 +61,12 @@ export default async function ReporteSaldosPage() {
         return new Intl.NumberFormat("es-PY").format(n);
     };
 
+    const CONCEPTOS_PACTADO = ['Pase', 'Prima'];
+
     function getSaldo(atletaId: string) {
         const movs = movsByAtleta.get(atletaId) || [];
         const totalPactado = movs
-            .filter(m => m.tipo === "HABER")
+            .filter(m => m.tipo === "HABER" && CONCEPTOS_PACTADO.includes(m.concepto))
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
         const totalPagado = movs
             .filter(m => m.tipo === "DEBE")
