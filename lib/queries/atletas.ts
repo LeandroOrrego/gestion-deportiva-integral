@@ -435,6 +435,10 @@ export async function saveMovimiento(payload: {
     monto: number;
     cuenta_id?: string;
     transaction_type_id?: string;
+    entidad_id?: string;
+    evento_id?: string;
+    comprobante_numero?: string;
+    category_id?: string | null;
 }): Promise<{ error: string | null }> {
     "use server";
 
@@ -473,6 +477,10 @@ export async function saveMovimiento(payload: {
             return { error: "Debe proveer una cuenta y una categoría financiera para pagos." };
         }
 
+        // Normalize optional fields
+        const eventoId = payload.evento_id && payload.evento_id !== "none" ? payload.evento_id : null;
+        const categoryId = payload.category_id || null;
+
         try {
             // Ejecutar ambas inserciones en paralelo
             const [movResult, txResult] = await Promise.all([
@@ -487,6 +495,10 @@ export async function saveMovimiento(payload: {
                     cuenta_id: payload.cuenta_id,
                     descripcion: `Pago Atleta - ${payload.concepto}`,
                     atleta_id: payload.atleta_id,
+                    entidad_id: payload.entidad_id || null,
+                    evento_id: eventoId,
+                    comprobante_numero: payload.comprobante_numero || null,
+                    category_id: categoryId,
                 })
             ]);
 

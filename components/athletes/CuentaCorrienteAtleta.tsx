@@ -132,11 +132,21 @@ interface MovimientoDialogProps {
     onOpenChange: (open: boolean) => void;
     tipo: MovimientoTipo;
     atletaId: string;
+    atletaNombre: string;
+    atletaCategoryId?: string | null;
+    atletaCategoryName?: string | null;
     accounts?: any[];
     transactionTypes?: any[];
+    entities?: any[];
+    eventos?: any[];
 }
 
-function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], transactionTypes = [] }: MovimientoDialogProps) {
+function MovimientoDialog({
+    open, onOpenChange, tipo, atletaId,
+    atletaNombre, atletaCategoryId, atletaCategoryName,
+    accounts = [], transactionTypes = [],
+    entities = [], eventos = [],
+}: MovimientoDialogProps) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const [fecha, setFecha] = useState(todayLocal());
@@ -144,9 +154,17 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
     const [montoDisplay, setMontoDisplay] = useState("");
     const [cuentaId, setCuentaId] = useState("");
     const [transactionTypeId, setTransactionTypeId] = useState("");
+    const [entidadId, setEntidadId] = useState("");
+    const [eventoId, setEventoId] = useState("");
+    const [comprobanteNumero, setComprobanteNumero] = useState("");
     const [error, setError] = useState("");
 
     const isDebe = tipo === "DEBE";
+
+    // Auto-find entidad matching athlete name
+    const matchedEntity = entities.find(
+        (e: any) => e.nombre?.toLowerCase() === atletaNombre?.toLowerCase()
+    );
 
     const handleSave = () => {
         if (isDebe) {
@@ -163,6 +181,9 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
             return;
         }
 
+        // Resolve entidad_id: auto-matched or manually selected
+        const resolvedEntidadId = matchedEntity?.id || entidadId || undefined;
+
         startTransition(async () => {
             const { error } = await saveMovimiento({
                 atleta_id: atletaId,
@@ -172,6 +193,10 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
                 monto,
                 cuenta_id: isDebe ? cuentaId : undefined,
                 transaction_type_id: isDebe ? transactionTypeId : undefined,
+                entidad_id: isDebe ? resolvedEntidadId : undefined,
+                evento_id: isDebe && eventoId ? eventoId : undefined,
+                comprobante_numero: isDebe && comprobanteNumero.trim() ? comprobanteNumero.trim() : undefined,
+                category_id: isDebe && atletaCategoryId ? atletaCategoryId : undefined,
             });
 
             if (error) {
@@ -191,6 +216,9 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
                 setMontoDisplay("");
                 setCuentaId("");
                 setTransactionTypeId("");
+                setEntidadId("");
+                setEventoId("");
+                setComprobanteNumero("");
                 setError("");
                 onOpenChange(false);
             }
@@ -290,32 +318,102 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
 
                     {/* Conditional Dropdowns for DEBE */}
                     {isDebe && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-4">
+                            {/* Razón/Entidad — pre-filled or selector */}
                             <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Cuenta Origen <span className="text-destructive">*</span></label>
-                                <Select value={cuentaId} onValueChange={(val) => { setCuentaId(val); setError(""); }}>
+                                <label className="text-sm font-medium">Razón / Entidad</label>
+                                {matchedEntity ? (
+                                    <Input
+                                        value={atletaNombre}
+                                        disabled
+                                        className="h-10 bg-muted/50"
+                                    />
+                                ) : (
+                                    <Select value={entidadId} onValueChange={(val) => { setEntidadId(val); setError(""); }}>
+                                        <SelectTrigger className="h-10">
+                                            <SelectValue placeholder={atletaNombre || "Seleccione..."} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {entities.map((ent: any) => (
+                                                <SelectItem key={ent.id} value={ent.id}>{ent.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                {matchedEntity && (
+                                    <p className="text-[10px] text-muted-foreground">Vinculado automáticamente a la entidad del atleta</p>
+                                )}
+                            </div>
+
+                            {/* Plantel — pre-filled */}
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Plantel</label>
+                                <Input
+                                    value={atletaCategoryName || "Sin plantel"}
+                                    disabled
+                                    className="h-10 bg-muted/50"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium">Cuenta Origen <span className="text-destructive">*</span></label>
+                                    <Select value={cuentaId} onValueChange={(val) => { setCuentaId(val); setError(""); }}>
+                                        <SelectTrigger className="h-10">
+                                            <SelectValue placeholder="Seleccione..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {accounts.map(acc => (
+                                                <SelectItem key={acc.id} value={acc.id}>{acc.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium">Categoría <span className="text-destructive">*</span></label>
+                                    <Select value={transactionTypeId} onValueChange={(val) => { setTransactionTypeId(val); setError(""); }}>
+                                        <SelectTrigger className="h-10">
+                                            <SelectValue placeholder="Seleccione..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {transactionTypes.map(type => (
+                                                <SelectItem key={type.id} value={type.id}>{type.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Jornada / Evento */}
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Jornada / Evento</label>
+                                <Select value={eventoId} onValueChange={(val) => { setEventoId(val); setError(""); }}>
                                     <SelectTrigger className="h-10">
-                                        <SelectValue placeholder="Seleccione..." />
+                                        <SelectValue placeholder="Ninguna (opcional)" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {accounts.map(acc => (
-                                            <SelectItem key={acc.id} value={acc.id}>{acc.nombre}</SelectItem>
-                                        ))}
+                                        <SelectItem value="none">Ninguna</SelectItem>
+                                        {eventos.map((ev: any) => {
+                                            const label = ev.jornada
+                                                ? ev.jornada
+                                                : `${ev.fecha} - ${ev.tipo || ''} vs ${ev.rival || 'ND'}`;
+                                            return (
+                                                <SelectItem key={ev.id} value={ev.id}>{label}</SelectItem>
+                                            );
+                                        })}
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* Comprobante */}
                             <div className="space-y-1.5">
-                                <label className="text-sm font-medium">Categoría <span className="text-destructive">*</span></label>
-                                <Select value={transactionTypeId} onValueChange={(val) => { setTransactionTypeId(val); setError(""); }}>
-                                    <SelectTrigger className="h-10">
-                                        <SelectValue placeholder="Seleccione..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {transactionTypes.map(type => (
-                                            <SelectItem key={type.id} value={type.id}>{type.nombre}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <label className="text-sm font-medium">Nº Comprobante</label>
+                                <Input
+                                    placeholder="Ej: 138753176"
+                                    value={comprobanteNumero}
+                                    onChange={(e) => { setComprobanteNumero(e.target.value); setError(""); }}
+                                    className="h-10 font-mono"
+                                />
                             </div>
                         </div>
                     )}
@@ -374,9 +472,13 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
 interface CuentaCorrienteAtletaProps {
     atletaId: string;
     atletaNombre: string;
+    atletaCategoryId?: string | null;
+    atletaCategoryName?: string | null;
     movimientos: MovimientoAtleta[];
     accounts?: any[];
     transactionTypes?: any[];
+    entities?: any[];
+    eventos?: any[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -386,9 +488,13 @@ interface CuentaCorrienteAtletaProps {
 export function CuentaCorrienteAtleta({
     atletaId,
     atletaNombre,
+    atletaCategoryId,
+    atletaCategoryName,
     movimientos,
     accounts = [],
     transactionTypes = [],
+    entities = [],
+    eventos = [],
 }: CuentaCorrienteAtletaProps) {
     const { toast } = useToast();
     const [isDeleting, startDeleting] = useTransition();
@@ -674,8 +780,13 @@ export function CuentaCorrienteAtleta({
                 onOpenChange={setDialogOpen}
                 tipo={dialogTipo}
                 atletaId={atletaId}
+                atletaNombre={atletaNombre}
+                atletaCategoryId={atletaCategoryId}
+                atletaCategoryName={atletaCategoryName}
                 accounts={accounts}
                 transactionTypes={transactionTypes}
+                entities={entities}
+                eventos={eventos}
             />
         </div>
     );
