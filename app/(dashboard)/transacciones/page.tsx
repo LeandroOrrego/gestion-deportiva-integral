@@ -2,7 +2,8 @@
 
 import { todayLocal, firstOfMonthLocal } from "@/lib/utils/date";
 import { useEffect, useState } from "react";
-import { Plus, Share2, FileText, Send } from "lucide-react";
+import { Plus, Share2, FileText, Send, FileSpreadsheet } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { useAuth } from "@/contexts/auth-context";
 import {
     getTransactions,
@@ -332,6 +333,43 @@ export default function TransactionsPage() {
         }
     };
 
+    const handleExportExcel = () => {
+        const rows = data.map(t => ({
+            'Fecha': formatDate(t.fecha),
+            'Descripción / Razón': t.entidades?.nombre || t.descripcion || '-',
+            'Categoría': t.transaction_types?.nombre || '-',
+            'Plantel': t.categorias?.nombre || '-',
+            'Cuenta': t.cuentas?.nombre || '-',
+            'Fondo': t.fondo || '-',
+            'Tipo': t.flow === 'income' ? 'Ingreso' : 'Egreso',
+            'Monto': Number(t.monto),
+            'Comprobante Nº': t.comprobante_numero || '-',
+            'Estado': t.status || '-',
+            'Jornada': t.eventos?.jornada ?? '-',
+            'Temporada': (t as any).temporada || '-',
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        // Ancho de columnas
+        ws['!cols'] = [
+            { wch: 12 }, // Fecha
+            { wch: 35 }, // Descripción
+            { wch: 25 }, // Categoría
+            { wch: 15 }, // Plantel
+            { wch: 18 }, // Cuenta
+            { wch: 14 }, // Fondo
+            { wch: 10 }, // Tipo
+            { wch: 14 }, // Monto
+            { wch: 14 }, // Comprobante
+            { wch: 12 }, // Estado
+            { wch: 10 }, // Jornada
+            { wch: 10 }, // Temporada
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Transacciones');
+        XLSX.writeFile(wb, `Transacciones_${filters.startDate}_${filters.endDate}.xlsx`);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -342,6 +380,10 @@ export default function TransactionsPage() {
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={handleExportExcel} className="border-emerald-500 text-emerald-700 hover:bg-emerald-50">
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        Exportar Excel
+                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className="border-brand-primary text-brand-primary hover:bg-brand-primary/10">
