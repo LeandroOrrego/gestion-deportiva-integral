@@ -290,6 +290,25 @@ export async function getMovimientos(atletaId: string): Promise<MovimientoAtleta
     return data || [];
 }
 
+/**
+ * Fetches ALL movements for ALL athletes in an organization (for bulk reports).
+ */
+export async function getAllMovimientos(organizationId: string): Promise<MovimientoAtleta[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("atleta_movimientos")
+        .select("*")
+        .eq("organization_id", organizationId);
+
+    if (error) {
+        console.error("[getAllMovimientos] Error:", error.message);
+        return [];
+    }
+
+    return data || [];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Server Action
 // ─────────────────────────────────────────────────────────────────────────────
