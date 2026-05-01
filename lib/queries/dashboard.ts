@@ -137,6 +137,7 @@ export async function getUltimasTransacciones(organizationId: string, limite = 8
             atletas(nombre_completo)
         `)
         .eq('organization_id', organizationId)
+        .eq('status', 'confirmed')
         .eq('es_transferencia', false)
         .is('deleted_at', null)
         .order('fecha', { ascending: false })

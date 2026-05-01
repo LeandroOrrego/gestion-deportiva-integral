@@ -53,6 +53,7 @@ export async function getTransactions(organizationId: string, filters: Transacti
             entidades (id, nombre)
         `)
         .eq('organization_id', organizationId)
+        .eq('status', 'confirmed')
         .gte('fecha', startDate)
         .lte('fecha', endDate)
         .is('deleted_at', null)
