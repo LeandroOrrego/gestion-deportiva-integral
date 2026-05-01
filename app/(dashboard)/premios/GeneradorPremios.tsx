@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Coins, Users, Trophy } from "lucide-react";
+import { todayLocal } from "@/lib/utils/date";
 
 export default function GeneradorPremios() {
     const { toast } = useToast();
@@ -28,7 +29,7 @@ export default function GeneradorPremios() {
     const [plantelId, setPlantelId] = useState<string>("");
     const [resultado, setResultado] = useState<string>("Victoria");
     const [concepto, setConcepto] = useState<string>("");
-    const [fecha, setFecha] = useState<string>(new Date().toISOString().split("T")[0]);
+    const [fecha, setFecha] = useState<string>(todayLocal());
     
     // Players states
     const [jugadores, setJugadores] = useState<Convocable[]>([]);

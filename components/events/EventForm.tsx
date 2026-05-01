@@ -1,5 +1,6 @@
 "use client";
 
+import { todayLocal } from "@/lib/utils/date";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -65,7 +66,7 @@ export function EventForm({ categories, onSubmit, isPending }: EventFormProps) {
     const form = useForm<z.infer<typeof eventSchema>>({
         resolver: zodResolver(eventSchema) as any,
         defaultValues: {
-            fecha: new Date().toISOString().split("T")[0],
+            fecha: todayLocal(),
             tipo: undefined,
             categoria_id: "",
             jornada: "",

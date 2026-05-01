@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { todayLocal } from "@/lib/utils/date";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -331,7 +332,7 @@ export async function liquidarEvento(
     }
 
     // ── 3. Calcular pagos ───────────────────────────────────────────────────
-    const fechaHoy = new Date().toISOString().split("T")[0];
+    const fechaHoy = todayLocal();
     const movimientos: {
         organization_id: string;
         atleta_id: string;

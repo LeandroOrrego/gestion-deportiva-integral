@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { todayLocal } from "@/lib/utils/date";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -79,9 +80,7 @@ function formatFecha(dateStr: string): string {
     return `${d}/${m}/${y}`;
 }
 
-function todayISO(): string {
-    return new Date().toISOString().split("T")[0];
-}
+// todayISO replaced by todayLocal from @/lib/utils/date
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-component: KPI Card
@@ -140,7 +139,7 @@ interface MovimientoDialogProps {
 function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], transactionTypes = [] }: MovimientoDialogProps) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
-    const [fecha, setFecha] = useState(todayISO());
+    const [fecha, setFecha] = useState(todayLocal());
     const [concepto, setConcepto] = useState("");
     const [montoDisplay, setMontoDisplay] = useState("");
     const [cuentaId, setCuentaId] = useState("");
@@ -187,7 +186,7 @@ function MovimientoDialog({ open, onOpenChange, tipo, atletaId, accounts = [], t
                     description: "El movimiento se ha guardado correctamente.",
                 });
                 // reset
-                setFecha(todayISO());
+                setFecha(todayLocal());
                 setConcepto("");
                 setMontoDisplay("");
                 setCuentaId("");

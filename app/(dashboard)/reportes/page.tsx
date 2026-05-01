@@ -26,13 +26,9 @@ import {
     ArrowUpRight, ArrowDownRight, Loader2, Users, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { todayLocal, firstOfMonthLocal } from "@/lib/utils/date";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function todayISO() { return new Date().toISOString().split("T")[0]; }
-function firstOfMonth() {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split("T")[0];
-}
 function fmtGs(v: number) { return `₲ ${new Intl.NumberFormat("es-PY").format(Math.round(v))}`; }
 
 type CatRow = { nombre: string; total: number; count: number };
@@ -197,8 +193,8 @@ function JornadaTab({ orgId, eventos }: { orgId: string; eventos: any[] }) {
 // TAB 2 — Financiero General
 // ═══════════════════════════════════════════════════════════════════════════════
 function GeneralTab({ orgId, accounts }: { orgId: string; accounts: any[] }) {
-    const [startDate, setStartDate] = useState(firstOfMonth());
-    const [endDate, setEndDate] = useState(todayISO());
+    const [startDate, setStartDate] = useState(firstOfMonthLocal());
+    const [endDate, setEndDate] = useState(todayLocal());
     const [cuentaId, setCuentaId] = useState("all");
     const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
     const [saldos, setSaldos] = useState<any[]>([]);

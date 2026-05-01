@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { createTransaction } from "./transactions";
+import { todayLocal } from "@/lib/utils/date";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -375,7 +376,7 @@ export async function saveAthleteAgreement(
         organization_id: orgId,
         atleta_id: targetAtletaId,
         temporada: "2026",
-        vigente_desde: new Date().toISOString().split("T")[0],
+        vigente_desde: todayLocal(),
         costo_pase: Math.round(Number(formData.costo_pase) || 0),
         prima_inicial: Math.round(Number(formData.prima_inicial) || 0),
         viatico_practica: Math.round(Number(formData.viatico_practica) || 0),

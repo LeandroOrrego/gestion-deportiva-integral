@@ -1,5 +1,6 @@
 "use client";
 
+import { todayLocal, firstOfMonthLocal } from "@/lib/utils/date";
 import { useEffect, useState } from "react";
 import { Plus, Share2, FileText, Send } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -39,12 +40,9 @@ export default function TransactionsPage() {
 
     // Filters state
     const [filters, setFilters] = useState<TransactionFilter>(() => {
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const today = now.toISOString().split('T')[0];
         return {
-            startDate: firstDay,
-            endDate: today,
+            startDate: firstOfMonthLocal(),
+            endDate: todayLocal(),
             flow: 'all',
             fondo: 'all',
             cuenta_id: 'all',

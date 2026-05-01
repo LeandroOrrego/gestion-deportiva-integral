@@ -1,6 +1,7 @@
 
 "use client";
 
+import { todayLocal } from "@/lib/utils/date";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { format } from "date-fns";
@@ -94,7 +95,7 @@ export function TransactionForm({
     const form = useForm<TransactionFormValues>({
         resolver: zodResolver(transactionSchema),
         defaultValues: {
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: todayLocal(),
             flow: "income",
             fondo: "deportivo",
             monto: "",
@@ -120,11 +121,11 @@ export function TransactionForm({
                 descripcion: initialData.descripcion || "",
                 evento_id: initialData.evento_id || "",
                 cantidad: initialData.cantidad ? String(initialData.cantidad) : "",
-                fecha: initialData.fecha?.split('T')[0] || new Date().toISOString().split('T')[0]
+                fecha: initialData.fecha?.split('T')[0] || todayLocal()
             });
         } else {
             form.reset({
-                fecha: new Date().toISOString().split('T')[0],
+                fecha: todayLocal(),
                 flow: "income",
                 fondo: "deportivo",
                 monto: "",

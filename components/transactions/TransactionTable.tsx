@@ -144,7 +144,7 @@ export function TransactionTable({
             </div>
 
             {/* Table */}
-            <div className="rounded-md border bg-card">
+            <div className="rounded-md border bg-card overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -157,7 +157,7 @@ export function TransactionTable({
                             <TableHead>Fondo</TableHead>
                             <TableHead className="text-right">Monto</TableHead>
                             <TableHead>Estado</TableHead>
-                            <TableHead className="text-right">Acciones</TableHead>
+                            <TableHead className="text-right min-w-[160px]">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -209,7 +209,7 @@ export function TransactionTable({
                                         <StatusBadge status={transaction.status} />
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                        <div className="flex items-center justify-end gap-1 flex-nowrap">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"

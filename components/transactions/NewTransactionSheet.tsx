@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { todayLocal } from '@/lib/utils/date';
 import { useUserRole } from '@/hooks/use-user-role';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,7 @@ export function NewTransactionSheet() {
     const [formData, setFormData] = useState({
         monto: '',
         descripcion: '',
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: todayLocal(),
         concepto_id: '',
     });
 
@@ -92,7 +93,7 @@ export function NewTransactionSheet() {
             setFormData({
                 monto: '',
                 descripcion: '',
-                fecha: new Date().toISOString().split('T')[0],
+                fecha: todayLocal(),
                 concepto_id: '',
             });
             router.refresh();

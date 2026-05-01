@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowDown, ArrowRight, ArrowUp, Clock, CreditCard, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { getLocalDate } from '@/lib/utils/date';
 import {
     getResumenFinanciero,
     getResumenMensual,
@@ -36,7 +37,7 @@ export default async function DashboardPage() {
     if (!profile?.organization_id) return <div className="p-8">Error: Usuario sin organización asignada.</div>;
 
     const orgId = profile.organization_id;
-    const today = new Date();
+    const today = getLocalDate();
 
     // 2. Fetch Data (Parallel)
     const [
@@ -65,7 +66,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground capitalize">
-                        {today.toLocaleString('es-PY', { month: 'long', year: 'numeric' })}
+                        {today.toLocaleString('es-PY', { month: 'long', year: 'numeric', timeZone: 'America/Asuncion' })}
                     </span>
                 </div>
             </div>
