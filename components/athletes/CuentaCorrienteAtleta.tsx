@@ -12,6 +12,7 @@ import {
     TrendingUp,
     TrendingDown,
     Trash,
+    Pencil,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ import { todayLocal } from "@/lib/utils/date";
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { MovimientoAtleta, MovimientoTipo, saveMovimiento, deleteMovimiento } from "@/lib/queries/atletas";
+import { MovimientoAtleta, MovimientoTipo, saveMovimiento, deleteMovimiento, updateMovimientoConcepto } from "@/lib/queries/atletas";
 import { useToast } from "@/hooks/use-toast";
 
 // (Types moved to lib/queries/atletas.ts)
@@ -445,6 +446,129 @@ function MovimientoDialog({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sub-component: Edit Concepto Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface EditConceptoDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    movimiento: MovimientoAtleta | null;
+    atletaId: string;
+}
+
+function EditConceptoDialog({ open, onOpenChange, movimiento, atletaId }: EditConceptoDialogProps) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const [concepto, setConcepto] = useState("");
+    const [error, setError] = useState("");
+
+    // Use a temporary effect to sync concept when movement changes
+    useEffect(() => {
+        if (movimiento) {
+            setConcepto(movimiento.concepto);
+            setError("");
+        }
+    }, [movimiento]);
+
+    const handleUpdate = () => {
+        if (!concepto.trim()) {
+            setError("El concepto es requerido.");
+            return;
+        }
+
+        startTransition(async () => {
+            const { error } = await updateMovimientoConcepto(movimiento!.id, concepto.trim(), atletaId);
+
+            if (error) {
+                toast({
+                    title: "Error al actualizar",
+                    description: error,
+                    variant: "destructive",
+                });
+            } else {
+                toast({
+                    title: "Concepto actualizado",
+                    description: "El concepto se ha corregido correctamente.",
+                });
+                onOpenChange(false);
+            }
+        });
+    };
+
+    if (!movimiento) return null;
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[400px]">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Pencil className="h-5 w-5 text-blue-500" />
+                        Editar Concepto
+                    </DialogTitle>
+                    <DialogDescription>
+                        Solo podés corregir el texto descriptivo del movimiento.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <Separator />
+
+                <div className="space-y-4 py-2">
+                    {/* Info bloqueada */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground">Tipo</label>
+                            <p className="text-sm font-semibold">{movimiento.tipo}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-muted-foreground">Monto</label>
+                            <p className="text-sm font-semibold font-mono">{formatGs(movimiento.monto)}</p>
+                        </div>
+                    </div>
+
+                    {/* Concepto editable */}
+                    <div className="space-y-1.5">
+                        <label className="text-sm font-medium">Concepto / Descripción</label>
+                        <Input
+                            value={concepto}
+                            onChange={(e) => {
+                                setConcepto(e.target.value);
+                                setError("");
+                            }}
+                            className="h-10"
+                            autoFocus
+                        />
+                        {error && <p className="text-xs text-destructive font-medium">{error}</p>}
+                    </div>
+                </div>
+
+                <DialogFooter className="gap-2">
+                    <DialogClose asChild>
+                        <Button variant="ghost" size="sm">
+                            Cancelar
+                        </Button>
+                    </DialogClose>
+                    <Button
+                        size="sm"
+                        onClick={handleUpdate}
+                        disabled={isPending}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                        {isPending ? (
+                            <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                Guardando...
+                            </>
+                        ) : (
+                            "Guardar Cambios"
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Props
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -479,10 +603,17 @@ export function CuentaCorrienteAtleta({
     const [isDeleting, startDeleting] = useTransition();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogTipo, setDialogTipo] = useState<MovimientoTipo>("HABER");
+    const [editingMovimiento, setEditingMovimiento] = useState<MovimientoAtleta | null>(null);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
 
     const openDialog = (tipo: MovimientoTipo) => {
         setDialogTipo(tipo);
         setDialogOpen(true);
+    };
+
+    const handleEdit = (mov: MovimientoAtleta) => {
+        setEditingMovimiento(mov);
+        setEditDialogOpen(true);
     };
 
     const handleDelete = (id: string) => {
@@ -721,16 +852,27 @@ export function CuentaCorrienteAtleta({
                                     </TableCell>
 
                                     {/* Actions */}
-                                    <TableCell className="text-center w-12">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 hidden group-hover:flex transition-colors"
-                                            onClick={() => handleDelete(mov.id)}
-                                            title="Eliminar este movimiento"
-                                        >
-                                            <Trash className="h-4 w-4" />
-                                        </Button>
+                                    <TableCell className="text-center w-20">
+                                        <div className="flex items-center justify-center gap-1 hidden group-hover:flex">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-muted-foreground hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40 transition-colors"
+                                                onClick={() => handleEdit(mov)}
+                                                title="Editar concepto"
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 transition-colors"
+                                                onClick={() => handleDelete(mov.id)}
+                                                title="Eliminar este movimiento"
+                                            >
+                                                <Trash className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -766,6 +908,14 @@ export function CuentaCorrienteAtleta({
                 accounts={accounts}
                 transactionTypes={transactionTypes}
                 eventos={eventos}
+            />
+
+            {/* ── Edit Dialog ────────────────────────────────────────── */}
+            <EditConceptoDialog
+                open={editDialogOpen}
+                onOpenChange={setEditDialogOpen}
+                movimiento={editingMovimiento}
+                atletaId={atletaId}
             />
         </div>
     );

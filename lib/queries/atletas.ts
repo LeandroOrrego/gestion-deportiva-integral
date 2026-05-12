@@ -554,6 +554,29 @@ export async function saveMovimiento(payload: {
 }
 
 /**
+ * Updates only the concept of an athlete movement.
+ * Used for correcting typos without affecting the financial balance or linked transactions.
+ */
+export async function updateMovimientoConcepto(id: string, concepto: string, atletaId: string): Promise<{ error: string | null }> {
+    "use server";
+
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from("atleta_movimientos")
+        .update({ concepto: concepto.trim() })
+        .eq("id", id);
+
+    if (error) {
+        console.error("[updateMovimientoConcepto] Error:", error.message);
+        return { error: error.message };
+    }
+
+    revalidatePath(`/atletas/${atletaId}`);
+    return { error: null };
+}
+
+/**
  * Deletes a financial movement from an athlete's current account.
  * Note: If the movement was a DEBE (linked to a transaction), this only 
  * deletes the athlete current account tracking portion.
