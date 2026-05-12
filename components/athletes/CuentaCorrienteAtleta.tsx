@@ -782,7 +782,7 @@ export function CuentaCorrienteAtleta({
                             <TableHead className="font-semibold text-foreground text-right">
                                 Saldo Acumulado
                             </TableHead>
-                            <TableHead className="font-semibold text-foreground text-center w-12"></TableHead>
+                            <TableHead className="font-semibold text-foreground text-center w-20"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -853,7 +853,7 @@ export function CuentaCorrienteAtleta({
 
                                     {/* Actions */}
                                     <TableCell className="text-center w-20">
-                                        <div className="flex items-center justify-center gap-1 hidden group-hover:flex">
+                                        <div className="hidden group-hover:flex items-center justify-center gap-1">
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
