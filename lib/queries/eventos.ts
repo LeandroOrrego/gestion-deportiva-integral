@@ -42,6 +42,7 @@ export type AsistenciaConMonto = {
     asistencia_id: string | null;
     monto_calculado: number;
     detalle_monto: string;
+    saldo_actual: number; // + = club debe al atleta | - = atleta debe al club
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,6 +193,7 @@ export async function getAsistenciaConMontos(
     const orgId = await getOrgId();
     if (!orgId) return [];
 
+    // 1. Atletas de la categoría con sus acuerdos
     let query = supabase
         .from("atletas")
         .select(`
@@ -219,6 +221,7 @@ export async function getAsistenciaConMontos(
     const { data: atletas, error: atletasError } = await query;
     if (atletasError || !atletas) return [];
 
+    // 2. Asistencia del evento
     const { data: asistencias } = await supabase
         .from("evento_asistencia")
         .select("id, atleta_id, asistio")
@@ -228,6 +231,21 @@ export async function getAsistenciaConMontos(
         (asistencias || []).map((a: any) => [a.atleta_id, { id: a.id, asistio: a.asistio }])
     );
 
+    // 3. Saldos actuales de todos los atletas de la categoría
+    const atletaIds = (atletas as any[]).map((a) => a.id);
+    const { data: movimientos } = await supabase
+        .from("atleta_movimientos")
+        .select("atleta_id, tipo, monto")
+        .in("atleta_id", atletaIds);
+
+    const saldoMap = new Map<string, number>();
+    for (const mov of movimientos || []) {
+        const actual = saldoMap.get(mov.atleta_id) ?? 0;
+        const delta = mov.tipo === "HABER" ? Number(mov.monto) : -Number(mov.monto);
+        saldoMap.set(mov.atleta_id, actual + delta);
+    }
+
+    // 4. Merge + calcular montos
     return (atletas as any[]).map((atleta) => {
         const record = asistenciaMap.get(atleta.id);
         const asistio = record?.asistio ?? false;
@@ -290,6 +308,7 @@ export async function getAsistenciaConMontos(
             asistencia_id: record?.id ?? null,
             monto_calculado,
             detalle_monto,
+            saldo_actual: saldoMap.get(atleta.id) ?? 0,
         };
     });
 }

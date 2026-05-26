@@ -15,17 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Page Props (Next.js 15+ dynamic route)
-// ─────────────────────────────────────────────────────────────────────────────
-
 interface EventDetailPageProps {
     params: Promise<{ id: string }>;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 function resultadoColor(resultado: string | null) {
     switch (resultado) {
@@ -48,10 +40,6 @@ function resultadoEmoji(resultado: string | null) {
         default: return "⏳";
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Page Component
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default async function EventDetailPage({ params }: EventDetailPageProps) {
     const resolvedParams = await params;
@@ -97,8 +85,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 <Badge
                     variant="outline"
                     className={`text-xs font-bold uppercase ${isLiquidado
-                        ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400"
+                            ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400"
                         }`}
                 >
                     {evento.estado}
@@ -108,17 +96,15 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             {/* ── Event Header Card ─────────────────────────────────── */}
             <Card className="rounded-2xl shadow-sm border border-border/60 overflow-hidden">
                 <CardContent className="p-0">
-                    {/* Top Banner */}
                     <div className={`px-6 py-5 ${isPartido
-                        ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
-                        : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30"
+                            ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
+                            : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30"
                         }`}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            {/* Left: Event identity */}
                             <div className="flex items-center gap-4">
                                 <div className={`h-14 w-14 rounded-xl flex items-center justify-center shrink-0 ${isPartido
-                                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
-                                    : "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
+                                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
+                                        : "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
                                     }`}>
                                     {isPartido ? (
                                         <Swords className="h-7 w-7" />
@@ -144,7 +130,6 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                                 </div>
                             </div>
 
-                            {/* Right: Result badge + Liquidar Button */}
                             <div className="flex items-center gap-3">
                                 {isPartido && (
                                     <Badge

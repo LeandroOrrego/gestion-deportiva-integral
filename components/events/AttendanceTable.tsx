@@ -115,10 +115,20 @@ export function AttendanceTable({
         const filas = presentes.map((a, i) => {
             const monto = a.monto_calculado ?? 0;
             const detalle = a.detalle_monto ?? "—";
+            const tieneAnticipo = a.saldo_actual < 0;
+            const saldoStr = tieneAnticipo
+                ? `Gs. ${Math.abs(a.saldo_actual).toLocaleString("es-PY")}`
+                : "";
+
             return `
                 <tr>
                     <td style="padding:9px 10px;text-align:center;color:#9ca3af;font-size:12px;">${i + 1}</td>
-                    <td style="padding:9px 10px;font-weight:600;font-size:13px;">${a.nombre_completo}</td>
+                    <td style="padding:9px 10px;font-weight:600;font-size:13px;">
+                        ${a.nombre_completo}
+                        ${tieneAnticipo
+                    ? `<span style="margin-left:6px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:99px;">⚠ Anticipo: ${saldoStr}</span>`
+                    : ""}
+                    </td>
                     <td style="padding:9px 10px;font-family:monospace;color:#6b7280;font-size:12px;">${a.documento || "—"}</td>
                     <td style="padding:9px 10px;color:#6b7280;font-size:12px;text-align:center;">${a.posicion || "—"}</td>
                     ${hayMontos ? `
@@ -130,10 +140,22 @@ export function AttendanceTable({
 
         const totalFila = hayMontos && totalMonto > 0 ? `
             <tr style="background:#f0fdf4;border-top:2px solid #059669;">
-                <td colspan="${4}" style="padding:11px 10px;text-align:right;font-weight:800;font-size:13px;color:#065f46;letter-spacing:0.3px;">TOTAL A PAGAR</td>
+                <td colspan="4" style="padding:11px 10px;text-align:right;font-weight:800;font-size:13px;color:#065f46;">TOTAL A PAGAR</td>
                 <td style="padding:11px 10px;"></td>
                 <td style="padding:11px 10px;text-align:right;font-weight:800;font-size:14px;color:#065f46;">${formatGs(totalMonto)}</td>
             </tr>` : "";
+
+        const atletasConAnticipo = presentes.filter((a) => a.saldo_actual < 0);
+        const notaAnticipos = atletasConAnticipo.length > 0 ? `
+            <div style="margin-top:16px;padding:12px 16px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;">
+                <p style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;">⚠ ATLETAS CON ANTICIPO PENDIENTE</p>
+                <p style="font-size:11px;color:#78350f;">
+                    Los siguientes jugadores tienen anticipos que deben descontarse al momento del pago:
+                    <b>${atletasConAnticipo.map((a) =>
+            `${a.nombre_completo} (debe: Gs. ${Math.abs(a.saldo_actual).toLocaleString("es-PY")})`
+        ).join(" — ")}</b>
+                </p>
+            </div>` : "";
 
         const html = `<!DOCTYPE html>
 <html lang="es">
@@ -220,6 +242,8 @@ export function AttendanceTable({
     ${totalFila}
   </tbody>
 </table>
+
+${notaAnticipos}
 
 <div class="footer">
   <div class="gen">ClubManager PY — ${new Date().getFullYear()}</div>
@@ -323,6 +347,8 @@ export function AttendanceTable({
                             {atletas.map((atleta) => {
                                 const isPresent = attendance[atleta.atleta_id] ?? false;
                                 const monto = atleta.monto_calculado ?? 0;
+                                const tieneAnticipo = atleta.saldo_actual < 0;
+
                                 return (
                                     <TableRow
                                         key={atleta.atleta_id}
@@ -341,7 +367,14 @@ export function AttendanceTable({
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium text-sm">
-                                            {atleta.nombre_completo}
+                                            <div className="flex items-center gap-2">
+                                                {atleta.nombre_completo}
+                                                {isPresent && tieneAnticipo && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
+                                                        ⚠ Anticipo
+                                                    </span>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="text-sm font-mono text-muted-foreground">
                                             {atleta.documento || "—"}
