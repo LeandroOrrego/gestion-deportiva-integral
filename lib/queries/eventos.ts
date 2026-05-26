@@ -30,7 +30,18 @@ export type AsistenciaAtleta = {
     documento: string | null;
     posicion: string | null;
     asistio: boolean;
-    asistencia_id: string | null; // null if no record yet
+    asistencia_id: string | null;
+};
+
+export type AsistenciaConMonto = {
+    atleta_id: string;
+    nombre_completo: string;
+    documento: string | null;
+    posicion: string | null;
+    asistio: boolean;
+    asistencia_id: string | null;
+    monto_calculado: number;
+    detalle_monto: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,9 +69,6 @@ async function getOrgId(): Promise<string | null> {
 // Queries
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Lista todos los eventos de la organización, ordenados por fecha descendente.
- */
 export async function getEventos(): Promise<Evento[]> {
     const supabase = await createClient();
     const orgId = await getOrgId();
@@ -92,9 +100,6 @@ export async function getEventos(): Promise<Evento[]> {
     return (data || []) as unknown as Evento[];
 }
 
-/**
- * Obtiene el detalle de un evento específico.
- */
 export async function getEventoDetalle(id: string): Promise<EventoDetalle | null> {
     const supabase = await createClient();
 
@@ -124,10 +129,6 @@ export async function getEventoDetalle(id: string): Promise<EventoDetalle | null
     return data as unknown as EventoDetalle;
 }
 
-/**
- * Obtiene la lista de atletas de una categoría con su estado de asistencia
- * para un evento específico.
- */
 export async function getAsistenciaEvento(
     eventoId: string,
     categoriaId: string | null
@@ -136,7 +137,6 @@ export async function getAsistenciaEvento(
     const orgId = await getOrgId();
     if (!orgId) return [];
 
-    // 1. Fetch athletes of this category
     let query = supabase
         .from("atletas")
         .select("id, nombre_completo, documento, posicion")
@@ -156,7 +156,6 @@ export async function getAsistenciaEvento(
         return [];
     }
 
-    // 2. Fetch existing attendance records for this event
     const { data: asistencias, error: asistError } = await supabase
         .from("evento_asistencia")
         .select("id, atleta_id, asistio")
@@ -170,7 +169,6 @@ export async function getAsistenciaEvento(
         (asistencias || []).map((a: any) => [a.atleta_id, { id: a.id, asistio: a.asistio }])
     );
 
-    // 3. Merge
     return (atletas || []).map((atleta: any) => {
         const record = asistenciaMap.get(atleta.id);
         return {
@@ -180,6 +178,118 @@ export async function getAsistenciaEvento(
             posicion: atleta.posicion,
             asistio: record?.asistio ?? false,
             asistencia_id: record?.id ?? null,
+        };
+    });
+}
+
+export async function getAsistenciaConMontos(
+    eventoId: string,
+    categoriaId: string | null,
+    resultado: "Victoria" | "Empate" | "Derrota" | null,
+    tipoEvento: "Partido" | "Practica" | null
+): Promise<AsistenciaConMonto[]> {
+    const supabase = await createClient();
+    const orgId = await getOrgId();
+    if (!orgId) return [];
+
+    let query = supabase
+        .from("atletas")
+        .select(`
+            id,
+            nombre_completo,
+            documento,
+            posicion,
+            athlete_agreements!atleta_id (
+                temporada,
+                viatico_practica,
+                viatico_partido,
+                premio_victoria,
+                premio_empate,
+                premio_derrota,
+                premio_fijo_resultado
+            )
+        `)
+        .eq("organization_id", orgId)
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("nombre_completo");
+
+    if (categoriaId) query = query.eq("category_id", categoriaId);
+
+    const { data: atletas, error: atletasError } = await query;
+    if (atletasError || !atletas) return [];
+
+    const { data: asistencias } = await supabase
+        .from("evento_asistencia")
+        .select("id, atleta_id, asistio")
+        .eq("evento_id", eventoId);
+
+    const asistenciaMap = new Map(
+        (asistencias || []).map((a: any) => [a.atleta_id, { id: a.id, asistio: a.asistio }])
+    );
+
+    return (atletas as any[]).map((atleta) => {
+        const record = asistenciaMap.get(atleta.id);
+        const asistio = record?.asistio ?? false;
+
+        const agreements: any[] = Array.isArray(atleta.athlete_agreements)
+            ? atleta.athlete_agreements
+            : atleta.athlete_agreements ? [atleta.athlete_agreements] : [];
+
+        const acuerdo = agreements.find((a: any) => a.temporada === "2026");
+
+        let monto_calculado = 0;
+        let detalle_monto = "Sin acuerdo";
+
+        if (acuerdo) {
+            if (tipoEvento === "Practica") {
+                monto_calculado = Number(acuerdo.viatico_practica) || 0;
+                detalle_monto = monto_calculado > 0
+                    ? `Viático práctica: Gs. ${monto_calculado.toLocaleString("es-PY")}`
+                    : "Sin viático";
+            } else {
+                const viatico = Number(acuerdo.viatico_partido) || 0;
+                const premioFijo = Number(acuerdo.premio_fijo_resultado) || 0;
+                let premio = 0;
+                let labelPremio = "";
+
+                if (premioFijo > 0) {
+                    premio = premioFijo;
+                    labelPremio = `Premio fijo: Gs. ${premio.toLocaleString("es-PY")}`;
+                } else {
+                    switch (resultado) {
+                        case "Victoria":
+                            premio = Number(acuerdo.premio_victoria) || 0;
+                            labelPremio = premio > 0 ? `P. Victoria: Gs. ${premio.toLocaleString("es-PY")}` : "";
+                            break;
+                        case "Empate":
+                            premio = Number(acuerdo.premio_empate) || 0;
+                            labelPremio = premio > 0 ? `P. Empate: Gs. ${premio.toLocaleString("es-PY")}` : "";
+                            break;
+                        case "Derrota":
+                            premio = Number(acuerdo.premio_derrota) || 0;
+                            labelPremio = premio > 0 ? `P. Derrota: Gs. ${premio.toLocaleString("es-PY")}` : "";
+                            break;
+                    }
+                }
+
+                monto_calculado = viatico + premio;
+                const partes = [];
+                if (viatico > 0) partes.push(`Viático: Gs. ${viatico.toLocaleString("es-PY")}`);
+                if (labelPremio) partes.push(labelPremio);
+                detalle_monto = partes.length > 0 ? partes.join(" + ") : "Gs. 0";
+            }
+        }
+
+        return {
+            atleta_id: atleta.id,
+            nombre_completo: atleta.nombre_completo,
+            documento: atleta.documento,
+            posicion: atleta.posicion,
+            asistio,
+            asistencia_id: record?.id ?? null,
+            monto_calculado,
+            detalle_monto,
         };
     });
 }
@@ -200,7 +310,6 @@ export async function saveEvento(formData: {
     const orgId = await getOrgId();
     if (!orgId) return { error: "No se pudo obtener la organización." };
 
-    // Normalizar valores "none" o vacíos a null
     const tipo = (formData.tipo && formData.tipo !== "none") ? formData.tipo : null;
     const categoriaId = (formData.categoria_id && formData.categoria_id !== "none") ? formData.categoria_id : null;
 
@@ -228,11 +337,6 @@ export async function saveEvento(formData: {
     return { error: null, eventoId: data.id };
 }
 
-/**
- * Guarda la asistencia para un evento.
- * Recibe un array de { atleta_id, asistio }.
- * Usa UPSERT sobre la constraint (evento_id, atleta_id).
- */
 export async function saveAsistencia(
     eventoId: string,
     asistencias: { atleta_id: string; asistio: boolean }[]
@@ -259,17 +363,6 @@ export async function saveAsistencia(
     return { error: null };
 }
 
-/**
- * Motor de Liquidación: calcula y registra los pagos de todos los atletas
- * que asistieron a un evento, basándose en sus acuerdos financieros.
- *
- * Para cada atleta asistente:
- * - Práctica: viatico_practica
- * - Partido: viatico_partido + premio según resultado (victoria/empate/derrota)
- *            o premio_fijo_resultado si está configurado.
- *
- * Inserta un movimiento HABER en atleta_movimientos y marca el evento como 'Liquidado'.
- */
 export async function liquidarEvento(
     eventoId: string
 ): Promise<{ error: string | null; liquidados?: number }> {
@@ -277,7 +370,6 @@ export async function liquidarEvento(
     const orgId = await getOrgId();
     if (!orgId) return { error: "No se pudo obtener la organización." };
 
-    // ── 1. Obtener el evento y validar estado ───────────────────────────────
     const { data: evento, error: eventoError } = await supabase
         .from("eventos")
         .select("id, fecha, tipo, rival, resultado, estado, categoria_id")
@@ -292,14 +384,10 @@ export async function liquidarEvento(
         return { error: "Este evento ya fue liquidado." };
     }
 
-    // Para partidos, verificar que haya un resultado cargado
     if (evento.tipo === "Partido" && !evento.resultado) {
         return { error: "No se puede liquidar un partido sin resultado. Cargá el resultado primero." };
     }
 
-    // ── 2. Obtener asistentes con sus acuerdos en una sola query ──────────
-    //    Usamos el alias "jugador" para el JOIN a atletas.
-    //    Esto evita que Supabase hidrate atleta_id como objeto.
     const { data: asistentes, error: asistError } = await supabase
         .from("evento_asistencia")
         .select(`
@@ -331,7 +419,6 @@ export async function liquidarEvento(
         return { error: "No hay atletas con asistencia marcada para liquidar." };
     }
 
-    // ── 3. Calcular pagos ───────────────────────────────────────────────────
     const fechaHoy = todayLocal();
     const movimientos: {
         organization_id: string;
@@ -345,27 +432,20 @@ export async function liquidarEvento(
     let liquidados = 0;
 
     for (const row of asistentes) {
-        // "jugador" es el alias del JOIN a atletas
         const jugador: any = row.jugador;
         if (!jugador) continue;
 
-        // Extraer el UUID real del atleta de forma segura
         const atletaId: string | null =
-            typeof jugador === "object" && jugador !== null
-                ? jugador.id
-                : null;
+            typeof jugador === "object" && jugador !== null ? jugador.id : null;
 
         if (!atletaId || typeof atletaId !== "string" || atletaId.length < 30) {
             console.warn("[liquidarEvento] atleta_id inválido, saltando:", jugador);
             continue;
         }
 
-        // Buscar acuerdo 2026
         const agreements: any[] = Array.isArray(jugador.athlete_agreements)
             ? jugador.athlete_agreements
-            : jugador.athlete_agreements
-                ? [jugador.athlete_agreements]
-                : [];
+            : jugador.athlete_agreements ? [jugador.athlete_agreements] : [];
 
         const acuerdo = agreements.find((a: any) => a.temporada === "2026");
         if (!acuerdo) continue;
@@ -416,10 +496,8 @@ export async function liquidarEvento(
         liquidados++;
     }
 
-    // ── 4. Debug: loguear payload antes de insertar ─────────────────────────
     console.log("[liquidarEvento] PAYLOAD A INSERTAR:", JSON.stringify(movimientos, null, 2));
 
-    // ── 5. Insertar todos los movimientos en batch ──────────────────────────
     if (movimientos.length > 0) {
         const { error: insertError } = await supabase
             .from("atleta_movimientos")
@@ -431,7 +509,6 @@ export async function liquidarEvento(
         }
     }
 
-    // ── 6. Marcar evento como Liquidado ─────────────────────────────────────
     const { error: updateError } = await supabase
         .from("eventos")
         .update({ estado: "Liquidado", updated_at: new Date().toISOString() })
@@ -441,7 +518,6 @@ export async function liquidarEvento(
         return { error: `Movimientos insertados pero error al actualizar estado: ${updateError.message}` };
     }
 
-    // ── 7. Revalidar rutas ──────────────────────────────────────────────────
     revalidatePath(`/eventos/${eventoId}`);
     revalidatePath("/eventos");
     for (const id of atletaIdsAfectados) {
@@ -450,4 +526,3 @@ export async function liquidarEvento(
 
     return { error: null, liquidados };
 }
-

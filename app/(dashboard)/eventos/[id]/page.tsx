@@ -8,7 +8,7 @@ import {
     MapPin,
 } from "lucide-react";
 
-import { getEventoDetalle, getAsistenciaEvento } from "@/lib/queries/eventos";
+import { getEventoDetalle, getAsistenciaConMontos } from "@/lib/queries/eventos";
 import { AttendanceTable } from "@/components/events/AttendanceTable";
 import { LiquidarButton } from "@/components/events/LiquidarButton";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,12 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
         notFound();
     }
 
-    const asistencia = await getAsistenciaEvento(evento.id, evento.categoria_id);
+    const asistencia = await getAsistenciaConMontos(
+        evento.id,
+        evento.categoria_id,
+        evento.resultado,
+        evento.tipo
+    );
 
     const fechaFormatted = new Date(evento.fecha + "T12:00:00").toLocaleDateString("es-PY", {
         weekday: "long",
@@ -91,11 +96,10 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
 
                 <Badge
                     variant="outline"
-                    className={`text-xs font-bold uppercase ${
-                        isLiquidado
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                            : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400"
-                    }`}
+                    className={`text-xs font-bold uppercase ${isLiquidado
+                        ? "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400"
+                        }`}
                 >
                     {evento.estado}
                 </Badge>
@@ -105,19 +109,17 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
             <Card className="rounded-2xl shadow-sm border border-border/60 overflow-hidden">
                 <CardContent className="p-0">
                     {/* Top Banner */}
-                    <div className={`px-6 py-5 ${
-                        isPartido
-                            ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
-                            : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30"
-                    }`}>
+                    <div className={`px-6 py-5 ${isPartido
+                        ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30"
+                        : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30"
+                        }`}>
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             {/* Left: Event identity */}
                             <div className="flex items-center gap-4">
-                                <div className={`h-14 w-14 rounded-xl flex items-center justify-center shrink-0 ${
-                                    isPartido
-                                        ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
-                                        : "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
-                                }`}>
+                                <div className={`h-14 w-14 rounded-xl flex items-center justify-center shrink-0 ${isPartido
+                                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
+                                    : "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
+                                    }`}>
                                     {isPartido ? (
                                         <Swords className="h-7 w-7" />
                                     ) : (
@@ -129,8 +131,8 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                                         {isPartido && evento.rival
                                             ? `vs. ${evento.rival}`
                                             : evento.tipo === "Practica"
-                                            ? "Sesión de Práctica"
-                                            : "Partido"}
+                                                ? "Sesión de Práctica"
+                                                : "Partido"}
                                     </h1>
                                     <p className="text-sm text-muted-foreground flex items-center gap-2 mt-0.5">
                                         <CalendarDays className="h-3.5 w-3.5" />
@@ -194,6 +196,11 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
                 eventoId={evento.id}
                 atletas={asistencia}
                 isLiquidado={isLiquidado}
+                resultado={evento.resultado}
+                rival={evento.rival}
+                fecha={evento.fecha}
+                categoria={evento.categorias?.nombre}
+                tipoEvento={evento.tipo}
             />
         </div>
     );
