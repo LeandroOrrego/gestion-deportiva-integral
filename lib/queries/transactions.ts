@@ -189,11 +189,11 @@ export async function updateTransaction(id: string, data: any) {
 
     // 2. Clean data to only keep valid database columns
     const validColumns = [
-        'fecha', 'flow', 'monto', 'descripcion', 'fondo', 
-        'comprobante_numero', 'cuenta_id', 'entidad_id', 
+        'fecha', 'flow', 'monto', 'descripcion', 'fondo',
+        'comprobante_numero', 'cuenta_id', 'entidad_id',
         'transaction_type_id', 'category_id', 'atleta_id', 'evento_id', 'cantidad'
     ];
-    
+
     const updateData: any = {};
     validColumns.forEach(col => {
         if (data[col] !== undefined) {
@@ -349,7 +349,6 @@ export async function getTransactionStats(organizationId: string, filters: Trans
 export async function getTotalAccountBalance(organizationId: string) {
     const supabase = await createClient();
 
-    // Get all active, non-deleted accounts — saldo_inicial is kept up-to-date by DB triggers
     const { data: accounts } = await supabase
         .from('cuentas')
         .select('saldo_inicial')
@@ -360,4 +359,104 @@ export async function getTotalAccountBalance(organizationId: string) {
     const saldoGeneral = accounts?.reduce((sum, c) => sum + Number(c.saldo_inicial), 0) || 0;
 
     return saldoGeneral;
+}
+
+/**
+ * Crea una transferencia entre dos cuentas.
+ * Genera dos transacciones vinculadas: un egreso en origen y un ingreso en destino.
+ * Ambas marcadas con es_transferencia = true.
+ */
+export async function createTransferencia(data: {
+    organization_id: string;
+    cuenta_origen_id: string;
+    cuenta_destino_id: string;
+    monto: number;
+    fecha: string;
+    descripcion?: string;
+}): Promise<{ error: string | null }> {
+    const supabase = await createClient();
+
+    const monto = Math.round(Number(data.monto));
+    if (monto <= 0) return { error: "El monto debe ser mayor a cero." };
+    if (data.cuenta_origen_id === data.cuenta_destino_id) return { error: "Las cuentas deben ser diferentes." };
+
+    const { data: tipo } = await supabase
+        .from('transaction_types')
+        .select('id')
+        .eq('nombre', 'Movimiento/Caja')
+        .single();
+
+    const transaction_type_id = tipo?.id ?? null;
+    const descripcion = data.descripcion || "Transferencia entre cuentas";
+    const now = new Date().toISOString();
+
+    const { error: errorEgreso } = await supabase
+        .from('transacciones')
+        .insert({
+            organization_id: data.organization_id,
+            fecha: data.fecha,
+            flow: 'expense',
+            monto,
+            fondo: 'administrativo',
+            descripcion,
+            cuenta_id: data.cuenta_origen_id,
+            transaction_type_id,
+            es_transferencia: true,
+            status: 'confirmed',
+            created_at: now,
+        });
+
+    if (errorEgreso) {
+        console.error('[createTransferencia] Error egreso:', errorEgreso.message);
+        return { error: `Error al registrar egreso: ${errorEgreso.message}` };
+    }
+
+    const { error: errorIngreso } = await supabase
+        .from('transacciones')
+        .insert({
+            organization_id: data.organization_id,
+            fecha: data.fecha,
+            flow: 'income',
+            monto,
+            fondo: 'administrativo',
+            descripcion,
+            cuenta_id: data.cuenta_destino_id,
+            transaction_type_id,
+            es_transferencia: true,
+            status: 'confirmed',
+            created_at: now,
+        });
+
+    if (errorIngreso) {
+        console.error('[createTransferencia] Error ingreso:', errorIngreso.message);
+        return { error: `Error al registrar ingreso: ${errorIngreso.message}` };
+    }
+
+    const { data: cuentaOrigen } = await supabase
+        .from('cuentas')
+        .select('saldo_inicial')
+        .eq('id', data.cuenta_origen_id)
+        .single();
+
+    if (cuentaOrigen) {
+        await supabase
+            .from('cuentas')
+            .update({ saldo_inicial: Number(cuentaOrigen.saldo_inicial) - monto })
+            .eq('id', data.cuenta_origen_id);
+    }
+
+    const { data: cuentaDestino } = await supabase
+        .from('cuentas')
+        .select('saldo_inicial')
+        .eq('id', data.cuenta_destino_id)
+        .single();
+
+    if (cuentaDestino) {
+        await supabase
+            .from('cuentas')
+            .update({ saldo_inicial: Number(cuentaDestino.saldo_inicial) + monto })
+            .eq('id', data.cuenta_destino_id);
+    }
+
+    return { error: null };
 }

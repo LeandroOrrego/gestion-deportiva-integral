@@ -2,7 +2,7 @@
 
 import { todayLocal, firstOfMonthLocal } from "@/lib/utils/date";
 import { useEffect, useState } from "react";
-import { Plus, Share2, FileText, Send, FileSpreadsheet } from "lucide-react";
+import { Plus, Share2, FileText, Send, FileSpreadsheet, ArrowLeftRight } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -13,6 +13,7 @@ import {
     voidTransaction,
     getTransactionStats,
     getTotalAccountBalance,
+    createTransferencia,
     type TransactionFilter
 } from "@/lib/queries/transactions";
 import { getSaldosPorCuenta } from "@/lib/queries/dashboard";
@@ -20,6 +21,7 @@ import { getSaldosPorCuenta } from "@/lib/queries/dashboard";
 import { Button } from "@/components/ui/button";
 import { TransactionTable } from "@/components/transactions/TransactionTable";
 import { TransactionForm } from "@/components/transactions/TransactionForm";
+import { TransferForm } from "@/components/transactions/TransferForm";
 import { TransactionStats } from "@/components/transactions/TransactionStats";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -39,7 +41,6 @@ export default function TransactionsPage() {
     const [totalBalance, setTotalBalance] = useState(0);
     const [formData, setFormData] = useState({ types: [], categories: [], accounts: [], entities: [] });
 
-    // Filters state
     const [filters, setFilters] = useState<TransactionFilter>(() => {
         return {
             startDate: firstOfMonthLocal(),
@@ -51,14 +52,11 @@ export default function TransactionsPage() {
         };
     });
 
-    // Form state
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isTransferOpen, setIsTransferOpen] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<any>(null);
-
-    // Summary range state (separate from page filters, but defaulted to them)
     const [summaryRange, setSummaryRange] = useState({ startDate: '', endDate: '' });
 
-    // Pre-fill summary range when filters change
     useEffect(() => {
         setSummaryRange({
             startDate: filters.startDate || '',
@@ -135,6 +133,26 @@ export default function TransactionsPage() {
         }
     };
 
+    const handleTransferencia = async (values: {
+        cuenta_origen_id: string;
+        cuenta_destino_id: string;
+        monto: number;
+        fecha: string;
+        descripcion?: string;
+    }) => {
+        if (!profile?.organization_id) return;
+        const result = await createTransferencia({
+            ...values,
+            organization_id: profile.organization_id,
+        });
+        if (result.error) {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        } else {
+            toast({ title: "✅ Transferencia realizada", description: "Los saldos fueron actualizados correctamente." });
+            loadData();
+        }
+    };
+
     const openCreateModal = () => {
         setEditingTransaction(null);
         setIsFormOpen(true);
@@ -180,13 +198,13 @@ export default function TransactionsPage() {
             });
 
             const accounts = await getSaldosPorCuenta(organizationId);
-            
+
             const doc = new jsPDF();
             const margin = 20;
             let y = 20;
 
             doc.setFontSize(18);
-            doc.text("CLUB DEPORTIVO NARANAL", 105, y, { align: "center" });
+            doc.text("CLUB DEPORTIVO NARANJAL", 105, y, { align: "center" });
             y += 10;
             doc.setFontSize(14);
             doc.text("Resumen Financiero", 105, y, { align: "center" });
@@ -338,38 +356,29 @@ export default function TransactionsPage() {
         let saldoAcum = 0;
         const rows = sorted.map(t => {
             const entrada = t.flow === 'income' ? Number(t.monto) : '';
-            const salida  = t.flow === 'expense' ? Number(t.monto) : '';
+            const salida = t.flow === 'expense' ? Number(t.monto) : '';
             saldoAcum += (t.flow === 'income' ? Number(t.monto) : -Number(t.monto));
             return {
-                'FECHA':        formatDate(t.fecha),
-                'GRUPO':        t.fondo || '-',
-                'CATEGORIA':    t.transaction_types?.nombre || '-',
-                'PLANTEL':      t.categorias?.nombre || '-',
-                'RAZON':        t.entidades?.nombre || '-',
-                'JORNADA':      (t as any).jornadas?.numero ?? '-',
-                'DESCRIPCION':  t.descripcion || '-',
-                'COMPROBANTE':  t.comprobante_numero || '-',
-                'CUENTA':       t.cuentas?.nombre || '-',
-                'ENTRADA':      entrada,
-                'SALIDA':       salida,
-                'SALDO':        saldoAcum,
+                'FECHA': formatDate(t.fecha),
+                'GRUPO': t.fondo || '-',
+                'CATEGORIA': t.transaction_types?.nombre || '-',
+                'PLANTEL': t.categorias?.nombre || '-',
+                'RAZON': t.entidades?.nombre || '-',
+                'JORNADA': (t as any).jornadas?.numero ?? '-',
+                'DESCRIPCION': t.descripcion || '-',
+                'COMPROBANTE': t.comprobante_numero || '-',
+                'CUENTA': t.cuentas?.nombre || '-',
+                'ENTRADA': entrada,
+                'SALIDA': salida,
+                'SALDO': saldoAcum,
             };
         });
 
         const ws = XLSX.utils.json_to_sheet(rows);
         ws['!cols'] = [
-            { wch: 12 }, // FECHA
-            { wch: 16 }, // GRUPO
-            { wch: 25 }, // CATEGORIA
-            { wch: 14 }, // PLANTEL
-            { wch: 30 }, // RAZON
-            { wch: 10 }, // JORNADA
-            { wch: 30 }, // DESCRIPCION
-            { wch: 14 }, // COMPROBANTE
-            { wch: 18 }, // CUENTA
-            { wch: 14 }, // ENTRADA
-            { wch: 14 }, // SALIDA
-            { wch: 16 }, // SALDO
+            { wch: 12 }, { wch: 16 }, { wch: 25 }, { wch: 14 },
+            { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 14 },
+            { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 16 },
         ];
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Transacciones');
@@ -401,7 +410,7 @@ export default function TransactionsPage() {
                             <div className="grid gap-4">
                                 <div className="space-y-2">
                                     <h4 className="font-medium leading-none">Generar Resumen</h4>
-                                    <p className="text-sm text-muted-foreground"> Seleccioná el rango para el reporte. </p>
+                                    <p className="text-sm text-muted-foreground">Seleccioná el rango para el reporte.</p>
                                 </div>
                                 <div className="grid gap-2 text-sm">
                                     <div className="grid grid-cols-3 items-center gap-4">
@@ -436,6 +445,14 @@ export default function TransactionsPage() {
                             </div>
                         </PopoverContent>
                     </Popover>
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsTransferOpen(true)}
+                        className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                    >
+                        <ArrowLeftRight className="mr-2 h-4 w-4" />
+                        Transferir
+                    </Button>
                     <Button onClick={openCreateModal} className="bg-brand-primary hover:bg-brand-primary/90">
                         <Plus className="mr-2 h-4 w-4" />
                         Nueva Transacción
@@ -461,6 +478,13 @@ export default function TransactionsPage() {
                 onSubmit={editingTransaction ? handleUpdate : handleCreate}
                 initialData={editingTransaction}
                 formData={formData}
+            />
+
+            <TransferForm
+                open={isTransferOpen}
+                onOpenChange={setIsTransferOpen}
+                onSubmit={handleTransferencia}
+                accounts={formData.accounts}
             />
         </div>
     );
