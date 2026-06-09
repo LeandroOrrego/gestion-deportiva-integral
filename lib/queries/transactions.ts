@@ -4,9 +4,9 @@
 import { createClient } from '@/lib/supabase/server';
 
 export type TransactionFilter = {
-    startDate?: string; // YYYY-MM-DD
-    endDate?: string;   // YYYY-MM-DD
-    month?: number;     // Keeping for backward compatibility if needed temporarily
+    startDate?: string;
+    endDate?: string;
+    month?: number;
     year?: number;
     flow?: 'income' | 'expense' | 'all';
     fondo?: 'deportivo' | 'administrativo' | 'all';
@@ -14,13 +14,12 @@ export type TransactionFilter = {
     excludeCajaMovements?: boolean;
     cuenta_id?: string;
     evento_id?: string;
-    temporada?: string; // '2025' | '2026' | 'todas'
+    temporada?: string;
 }
 
 export async function getTransactions(organizationId: string, filters: TransactionFilter) {
     const supabase = await createClient();
 
-    // Use specific range if provided, otherwise fallback to month/year
     let startDate = filters.startDate;
     let endDate = filters.endDate;
 
@@ -91,7 +90,6 @@ export async function getTransactions(organizationId: string, filters: Transacti
 
     if (error) {
         console.error('Error fetching transactions (full query):', error);
-        // Fallback: try minimal query
         let fallbackQuery = supabase
             .from('transacciones')
             .select('*')
@@ -153,12 +151,10 @@ export async function createTransaction(data: any) {
 
     if (error) throw error;
 
-    // Update the account balance (saldo_inicial) after creating the transaction
     if (data.cuenta_id) {
         const monto = Number(data.monto);
         const adjustment = data.flow === 'income' ? monto : -monto;
 
-        // Get current balance
         const { data: account } = await supabase
             .from('cuentas')
             .select('saldo_inicial')
@@ -180,14 +176,12 @@ export async function createTransaction(data: any) {
 export async function updateTransaction(id: string, data: any) {
     const supabase = await createClient();
 
-    // 1. Get original transaction for balance reversal
     const { data: original } = await supabase
         .from('transacciones')
         .select('monto, flow, cuenta_id, status')
         .eq('id', id)
         .single();
 
-    // 2. Clean data to only keep valid database columns
     const validColumns = [
         'fecha', 'flow', 'monto', 'descripcion', 'fondo',
         'comprobante_numero', 'cuenta_id', 'entidad_id',
@@ -201,7 +195,6 @@ export async function updateTransaction(id: string, data: any) {
         }
     });
 
-    // Handle nullifications from UI
     if (updateData.category_id === "none" || updateData.category_id === "") updateData.category_id = null;
     if (updateData.entidad_id === "none" || updateData.entidad_id === "") updateData.entidad_id = null;
     if (updateData.evento_id === "none" || updateData.evento_id === "") updateData.evento_id = null;
@@ -217,7 +210,6 @@ export async function updateTransaction(id: string, data: any) {
 
     if (error) throw error;
 
-    // 3. Balance Adjustment Logic
     if (original && original.status === 'confirmed') {
         const montoOld = Number(original.monto);
         const montoNew = updateData.monto !== undefined ? Number(updateData.monto) : montoOld;
@@ -229,14 +221,12 @@ export async function updateTransaction(id: string, data: any) {
         const hasChanges = montoOld !== montoNew || flowOld !== flowNew || accountIdOld !== accountIdNew;
 
         if (hasChanges) {
-            // Reverse old impact
             const reversal = flowOld === 'income' ? -montoOld : montoOld;
             const { data: accOld } = await supabase.from('cuentas').select('saldo_inicial').eq('id', accountIdOld).single();
             if (accOld) {
                 await supabase.from('cuentas').update({ saldo_inicial: Number(accOld.saldo_inicial) + reversal }).eq('id', accountIdOld);
             }
 
-            // Apply new impact
             const addition = flowNew === 'income' ? montoNew : -montoNew;
             const { data: accNew } = await supabase.from('cuentas').select('saldo_inicial').eq('id', accountIdNew).single();
             if (accNew) {
@@ -251,7 +241,6 @@ export async function updateTransaction(id: string, data: any) {
 export async function voidTransaction(id: string) {
     const supabase = await createClient();
 
-    // Get the transaction details first to reverse the balance
     const { data: transaction } = await supabase
         .from('transacciones')
         .select('monto, flow, cuenta_id, status')
@@ -268,10 +257,8 @@ export async function voidTransaction(id: string) {
 
     if (error) throw error;
 
-    // Reverse the balance adjustment if the transaction was confirmed
     if (transaction && transaction.status === 'confirmed' && transaction.cuenta_id) {
         const monto = Number(transaction.monto);
-        // Reverse: if it was income, subtract it back; if expense, add it back
         const reversal = transaction.flow === 'income' ? -monto : monto;
 
         const { data: account } = await supabase
@@ -361,11 +348,6 @@ export async function getTotalAccountBalance(organizationId: string) {
     return saldoGeneral;
 }
 
-/**
- * Crea una transferencia entre dos cuentas.
- * Genera dos transacciones vinculadas: un egreso en origen y un ingreso en destino.
- * Ambas marcadas con es_transferencia = true.
- */
 export async function createTransferencia(data: {
     organization_id: string;
     cuenta_origen_id: string;
@@ -373,6 +355,9 @@ export async function createTransferencia(data: {
     monto: number;
     fecha: string;
     descripcion?: string;
+    entidad_id?: string | null;
+    comprobante_numero?: string | null;
+    category_id?: string | null;
 }): Promise<{ error: string | null }> {
     const supabase = await createClient();
 
@@ -390,6 +375,7 @@ export async function createTransferencia(data: {
     const descripcion = data.descripcion || "Transferencia entre cuentas";
     const now = new Date().toISOString();
 
+    // 1. Egreso en cuenta origen
     const { error: errorEgreso } = await supabase
         .from('transacciones')
         .insert({
@@ -401,6 +387,9 @@ export async function createTransferencia(data: {
             descripcion,
             cuenta_id: data.cuenta_origen_id,
             transaction_type_id,
+            entidad_id: data.entidad_id ?? null,
+            comprobante_numero: data.comprobante_numero ?? null,
+            category_id: data.category_id ?? null,
             es_transferencia: true,
             status: 'confirmed',
             created_at: now,
@@ -411,6 +400,7 @@ export async function createTransferencia(data: {
         return { error: `Error al registrar egreso: ${errorEgreso.message}` };
     }
 
+    // 2. Ingreso en cuenta destino
     const { error: errorIngreso } = await supabase
         .from('transacciones')
         .insert({
@@ -422,6 +412,9 @@ export async function createTransferencia(data: {
             descripcion,
             cuenta_id: data.cuenta_destino_id,
             transaction_type_id,
+            entidad_id: data.entidad_id ?? null,
+            comprobante_numero: data.comprobante_numero ?? null,
+            category_id: data.category_id ?? null,
             es_transferencia: true,
             status: 'confirmed',
             created_at: now,
@@ -432,6 +425,7 @@ export async function createTransferencia(data: {
         return { error: `Error al registrar ingreso: ${errorIngreso.message}` };
     }
 
+    // 3. Actualizar saldo cuenta origen (restar)
     const { data: cuentaOrigen } = await supabase
         .from('cuentas')
         .select('saldo_inicial')
@@ -445,6 +439,7 @@ export async function createTransferencia(data: {
             .eq('id', data.cuenta_origen_id);
     }
 
+    // 4. Actualizar saldo cuenta destino (sumar)
     const { data: cuentaDestino } = await supabase
         .from('cuentas')
         .select('saldo_inicial')

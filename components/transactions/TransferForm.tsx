@@ -2,7 +2,8 @@
 
 import { todayLocal } from "@/lib/utils/date";
 import { useState } from "react";
-import { ArrowRight, ArrowLeftRight } from "lucide-react";
+import { ArrowRight, ArrowLeftRight, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 
@@ -33,22 +47,33 @@ interface TransferFormProps {
         monto: number;
         fecha: string;
         descripcion?: string;
+        entidad_id?: string | null;
+        comprobante_numero?: string;
+        category_id?: string | null;
     }) => Promise<void>;
     accounts: { id: string; nombre: string; saldo_inicial: number }[];
+    entities: { id: string; nombre: string }[];
+    categories: { id: string; nombre: string }[];
 }
 
 function formatGs(n: number) {
     return `Gs. ${Math.round(n).toLocaleString("es-PY")}`;
 }
 
-export function TransferForm({ open, onOpenChange, onSubmit, accounts }: TransferFormProps) {
+export function TransferForm({
+    open, onOpenChange, onSubmit, accounts, entities, categories
+}: TransferFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [cuentaOrigen, setCuentaOrigen] = useState("");
     const [cuentaDestino, setCuentaDestino] = useState("");
     const [monto, setMonto] = useState("");
     const [fecha, setFecha] = useState(todayLocal());
     const [descripcion, setDescripcion] = useState("Transferencia entre cuentas");
+    const [entidadId, setEntidadId] = useState("");
+    const [comprobanteNumero, setComprobanteNumero] = useState("");
+    const [categoryId, setCategoryId] = useState("");
     const [error, setError] = useState("");
+    const [comboboxOpen, setComboboxOpen] = useState(false);
 
     const handleMontoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value.replace(/\D/g, "");
@@ -57,10 +82,8 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
     };
 
     const montoNumerico = Number(monto.replace(/\./g, ""));
-
     const saldoOrigen = accounts.find(a => a.id === cuentaOrigen)?.saldo_inicial ?? null;
     const saldoDestino = accounts.find(a => a.id === cuentaDestino)?.saldo_inicial ?? null;
-
     const saldoOrigenPost = saldoOrigen !== null ? saldoOrigen - montoNumerico : null;
     const saldoDestinoPost = saldoDestino !== null ? saldoDestino + montoNumerico : null;
 
@@ -70,6 +93,9 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
         setMonto("");
         setFecha(todayLocal());
         setDescripcion("Transferencia entre cuentas");
+        setEntidadId("");
+        setComprobanteNumero("");
+        setCategoryId("");
         setError("");
     };
 
@@ -80,7 +106,6 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
 
     const handleSubmit = async () => {
         setError("");
-
         if (!cuentaOrigen) return setError("Seleccioná la cuenta de origen.");
         if (!cuentaDestino) return setError("Seleccioná la cuenta de destino.");
         if (cuentaOrigen === cuentaDestino) return setError("Las cuentas deben ser diferentes.");
@@ -98,6 +123,9 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
                 monto: montoNumerico,
                 fecha,
                 descripcion: descripcion || "Transferencia entre cuentas",
+                entidad_id: (entidadId && entidadId !== "none") ? entidadId : null,
+                comprobante_numero: comprobanteNumero || undefined,
+                category_id: (categoryId && categoryId !== "none") ? categoryId : null,
             });
             resetForm();
             onOpenChange(false);
@@ -110,7 +138,7 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-[460px]">
+            <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl">
                         <ArrowLeftRight className="h-5 w-5 text-primary" />
@@ -187,7 +215,7 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
                             )}
                         </div>
 
-                        {/* Flecha visual */}
+                        {/* Flecha */}
                         <div className="flex items-center justify-center py-1">
                             <div className="flex items-center gap-2 text-muted-foreground text-xs">
                                 <div className="h-px w-12 bg-border" />
@@ -252,9 +280,101 @@ export function TransferForm({ open, onOpenChange, onSubmit, accounts }: Transfe
                         </div>
                     )}
 
+                    <Separator />
+
+                    {/* Clasificación */}
+                    <div className="space-y-4">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                            Clasificación
+                        </Label>
+
+                        {/* Razón / Entidad */}
+                        <div className="space-y-2">
+                            <Label className="text-sm">Razón / Entidad (Opcional)</Label>
+                            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={comboboxOpen}
+                                        className={cn(
+                                            "w-full justify-between h-auto px-4 py-3 font-normal",
+                                            !entidadId && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {entidadId && entidadId !== "none"
+                                            ? entities.find(e => e.id === entidadId)?.nombre
+                                            : "Buscar entidad o persona..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar..." />
+                                        <CommandList>
+                                            <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    value="none"
+                                                    onSelect={() => {
+                                                        setEntidadId("none");
+                                                        setComboboxOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", entidadId === "none" ? "opacity-100" : "opacity-0")} />
+                                                    Ninguna
+                                                </CommandItem>
+                                                {entities.map(entidad => (
+                                                    <CommandItem
+                                                        key={entidad.id}
+                                                        value={entidad.nombre}
+                                                        onSelect={() => {
+                                                            setEntidadId(entidad.id);
+                                                            setComboboxOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", entidadId === entidad.id ? "opacity-100" : "opacity-0")} />
+                                                        {entidad.nombre}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        {/* Comprobante y Plantel */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm">Comprobante N°</Label>
+                                <Input
+                                    placeholder="000-014-0000000"
+                                    value={comprobanteNumero}
+                                    onChange={(e) => setComprobanteNumero(e.target.value)}
+                                    className="px-4 py-3 h-auto font-mono"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-sm">Plantel (Opcional)</Label>
+                                <Select value={categoryId} onValueChange={setCategoryId}>
+                                    <SelectTrigger className="px-4 py-3 h-auto">
+                                        <SelectValue placeholder="-" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Ninguno</SelectItem>
+                                        {categories.map(c => (
+                                            <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Descripción */}
                     <div className="space-y-2">
-                        <Label>Descripción</Label>
+                        <Label className="text-sm">Descripción</Label>
                         <Textarea
                             value={descripcion}
                             onChange={(e) => setDescripcion(e.target.value)}

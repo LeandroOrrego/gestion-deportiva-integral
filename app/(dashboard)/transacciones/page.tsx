@@ -139,6 +139,9 @@ export default function TransactionsPage() {
         monto: number;
         fecha: string;
         descripcion?: string;
+        entidad_id?: string | null;
+        comprobante_numero?: string;
+        category_id?: string | null;
     }) => {
         if (!profile?.organization_id) return;
         const result = await createTransferencia({
@@ -485,6 +488,8 @@ export default function TransactionsPage() {
                 onOpenChange={setIsTransferOpen}
                 onSubmit={handleTransferencia}
                 accounts={formData.accounts}
+                entities={formData.entities}
+                categories={formData.categories}
             />
         </div>
     );
