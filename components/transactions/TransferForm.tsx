@@ -87,6 +87,9 @@ export function TransferForm({
     const saldoOrigenPost = saldoOrigen !== null ? saldoOrigen - montoNumerico : null;
     const saldoDestinoPost = saldoDestino !== null ? saldoDestino + montoNumerico : null;
 
+    // Warning no bloqueante
+    const saldoInsuficiente = saldoOrigen !== null && montoNumerico > 0 && montoNumerico > saldoOrigen;
+
     const resetForm = () => {
         setCuentaOrigen("");
         setCuentaDestino("");
@@ -111,9 +114,6 @@ export function TransferForm({
         if (cuentaOrigen === cuentaDestino) return setError("Las cuentas deben ser diferentes.");
         if (!montoNumerico || montoNumerico <= 0) return setError("Ingresá un monto válido.");
         if (!fecha) return setError("Seleccioná una fecha.");
-        if (saldoOrigen !== null && montoNumerico > saldoOrigen) {
-            return setError("El monto supera el saldo disponible en la cuenta origen.");
-        }
 
         setIsSubmitting(true);
         try {
@@ -383,7 +383,14 @@ export function TransferForm({
                         />
                     </div>
 
-                    {/* Error */}
+                    {/* Warning saldo insuficiente — no bloqueante */}
+                    {saldoInsuficiente && (
+                        <p className="text-sm text-amber-600 font-medium bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-md border border-amber-200 dark:border-amber-800">
+                            ⚠ El monto supera el saldo actual de la cuenta origen. La cuenta quedará en negativo.
+                        </p>
+                    )}
+
+                    {/* Error bloqueante */}
                     {error && (
                         <p className="text-sm text-destructive font-medium bg-destructive/10 px-3 py-2 rounded-md">
                             ⚠ {error}
