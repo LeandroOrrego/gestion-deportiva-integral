@@ -88,7 +88,7 @@ export default function TransactionsPage() {
 
     useEffect(() => {
         loadData();
-    }, [profile?.organization_id, filters.startDate, filters.endDate, filters.flow, filters.fondo, filters.search]);
+    }, [profile?.organization_id, filters.startDate, filters.endDate, filters.flow, filters.fondo, filters.search, filters.cuenta_id]);
 
     const handleCreate = async (values: any) => {
         if (!profile?.organization_id) return;
