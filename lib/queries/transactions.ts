@@ -46,7 +46,7 @@ export async function getTransactions(organizationId: string, filters: Transacti
             entidad_id,
             transaction_type_id,
             category_id,
-            transaction_types!inner (id, nombre),
+            transaction_types (id, nombre),
             categorias (id, nombre),
             cuentas!cuenta_id (id, nombre, saldo_inicial, tipo),
             entidades (id, nombre)
@@ -296,7 +296,7 @@ export async function getTransactionStats(organizationId: string, filters: Trans
 
     let query = supabase
         .from('transacciones')
-        .select('monto, flow, es_transferencia, transaction_types!inner(nombre)')
+        .select('monto, flow, es_transferencia, transaction_types(nombre)')
         .eq('organization_id', organizationId)
         .gte('fecha', startDate)
         .lte('fecha', endDate)
