@@ -131,7 +131,7 @@ export async function getUltimasTransacciones(organizationId: string, limite = 8
             descripcion,
             es_transferencia,
             comprobante_numero,
-            transaction_types!inner(nombre),
+            transaction_types(nombre),
             categorias(nombre),
             entidades(nombre, tipo:tipo_entidad_id),
             atletas(nombre_completo)
@@ -166,7 +166,7 @@ export async function getSaldosPorCuenta(organizationId: string) {
         .select('*')
         .eq('organization_id', organizationId)
         .eq('activo', true)
-        .gt('saldo_inicial', 0)
+
         .is('deleted_at', null);
 
     if (!cuentas || cuentas.length === 0) return [];
