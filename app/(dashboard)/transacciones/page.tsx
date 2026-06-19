@@ -142,6 +142,7 @@ export default function TransactionsPage() {
         entidad_id?: string | null;
         comprobante_numero?: string;
         category_id?: string | null;
+        transaction_type_id?: string | null;
     }) => {
         if (!profile?.organization_id) return;
         const result = await createTransferencia({
@@ -490,6 +491,7 @@ export default function TransactionsPage() {
                 accounts={formData.accounts}
                 entities={formData.entities}
                 categories={formData.categories}
+                transactionTypes={formData.types}
             />
         </div>
     );

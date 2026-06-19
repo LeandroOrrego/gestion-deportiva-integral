@@ -50,10 +50,12 @@ interface TransferFormProps {
         entidad_id?: string | null;
         comprobante_numero?: string;
         category_id?: string | null;
+        transaction_type_id?: string | null;
     }) => Promise<void>;
     accounts: { id: string; nombre: string; saldo_inicial: number }[];
     entities: { id: string; nombre: string }[];
     categories: { id: string; nombre: string }[];
+    transactionTypes: { id: string; nombre: string }[];
 }
 
 function formatGs(n: number) {
@@ -61,7 +63,7 @@ function formatGs(n: number) {
 }
 
 export function TransferForm({
-    open, onOpenChange, onSubmit, accounts, entities, categories
+    open, onOpenChange, onSubmit, accounts, entities, categories, transactionTypes
 }: TransferFormProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [cuentaOrigen, setCuentaOrigen] = useState("");
@@ -71,9 +73,10 @@ export function TransferForm({
     const [descripcion, setDescripcion] = useState("Transferencia entre cuentas");
     const [entidadId, setEntidadId] = useState("");
     const [comprobanteNumero, setComprobanteNumero] = useState("");
-    const [categoryId, setCategoryId] = useState("");
+    const [transactionTypeId, setTransactionTypeId] = useState("");
     const [error, setError] = useState("");
     const [comboboxOpen, setComboboxOpen] = useState(false);
+    const [typeComboboxOpen, setTypeComboboxOpen] = useState(false);
 
     const handleMontoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value.replace(/\D/g, "");
@@ -87,7 +90,6 @@ export function TransferForm({
     const saldoOrigenPost = saldoOrigen !== null ? saldoOrigen - montoNumerico : null;
     const saldoDestinoPost = saldoDestino !== null ? saldoDestino + montoNumerico : null;
 
-    // Warning no bloqueante
     const saldoInsuficiente = saldoOrigen !== null && montoNumerico > 0 && montoNumerico > saldoOrigen;
 
     const resetForm = () => {
@@ -98,7 +100,7 @@ export function TransferForm({
         setDescripcion("Transferencia entre cuentas");
         setEntidadId("");
         setComprobanteNumero("");
-        setCategoryId("");
+        setTransactionTypeId("");
         setError("");
     };
 
@@ -125,7 +127,8 @@ export function TransferForm({
                 descripcion: descripcion || "Transferencia entre cuentas",
                 entidad_id: (entidadId && entidadId !== "none") ? entidadId : null,
                 comprobante_numero: comprobanteNumero || undefined,
-                category_id: (categoryId && categoryId !== "none") ? categoryId : null,
+                category_id: null,
+                transaction_type_id: (transactionTypeId && transactionTypeId !== "none") ? transactionTypeId : null,
             });
             resetForm();
             onOpenChange(false);
@@ -288,6 +291,62 @@ export function TransferForm({
                             Clasificación
                         </Label>
 
+                        {/* Categoría */}
+                        <div className="space-y-2">
+                            <Label className="text-sm">Categoría (Opcional)</Label>
+                            <Popover open={typeComboboxOpen} onOpenChange={setTypeComboboxOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={typeComboboxOpen}
+                                        className={cn(
+                                            "w-full justify-between h-auto px-4 py-3 font-normal",
+                                            !transactionTypeId && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {transactionTypeId && transactionTypeId !== "none"
+                                            ? transactionTypes.find(t => t.id === transactionTypeId)?.nombre
+                                            : "Seleccioná una categoría..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar categoría..." />
+                                        <CommandList>
+                                            <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    value="none"
+                                                    onSelect={() => {
+                                                        setTransactionTypeId("none");
+                                                        setTypeComboboxOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", transactionTypeId === "none" ? "opacity-100" : "opacity-0")} />
+                                                    Ninguna
+                                                </CommandItem>
+                                                {transactionTypes.map(type => (
+                                                    <CommandItem
+                                                        key={type.id}
+                                                        value={type.nombre}
+                                                        onSelect={() => {
+                                                            setTransactionTypeId(type.id);
+                                                            setTypeComboboxOpen(false);
+                                                        }}
+                                                    >
+                                                        <Check className={cn("mr-2 h-4 w-4", transactionTypeId === type.id ? "opacity-100" : "opacity-0")} />
+                                                        {type.nombre}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
                         {/* Razón / Entidad */}
                         <div className="space-y-2">
                             <Label className="text-sm">Razón / Entidad (Opcional)</Label>
@@ -344,31 +403,15 @@ export function TransferForm({
                             </Popover>
                         </div>
 
-                        {/* Comprobante y Plantel */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-sm">Comprobante N°</Label>
-                                <Input
-                                    placeholder="000-014-0000000"
-                                    value={comprobanteNumero}
-                                    onChange={(e) => setComprobanteNumero(e.target.value)}
-                                    className="px-4 py-3 h-auto font-mono"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-sm">Plantel (Opcional)</Label>
-                                <Select value={categoryId} onValueChange={setCategoryId}>
-                                    <SelectTrigger className="px-4 py-3 h-auto">
-                                        <SelectValue placeholder="-" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Ninguno</SelectItem>
-                                        {categories.map(c => (
-                                            <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        {/* Comprobante */}
+                        <div className="space-y-2">
+                            <Label className="text-sm">Comprobante N°</Label>
+                            <Input
+                                placeholder="000-014-0000000"
+                                value={comprobanteNumero}
+                                onChange={(e) => setComprobanteNumero(e.target.value)}
+                                className="px-4 py-3 h-auto font-mono"
+                            />
                         </div>
                     </div>
 
@@ -383,7 +426,7 @@ export function TransferForm({
                         />
                     </div>
 
-                    {/* Warning saldo insuficiente — no bloqueante */}
+                    {/* Warning saldo insuficiente */}
                     {saldoInsuficiente && (
                         <p className="text-sm text-amber-600 font-medium bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-md border border-amber-200 dark:border-amber-800">
                             ⚠ El monto supera el saldo actual de la cuenta origen. La cuenta quedará en negativo.
