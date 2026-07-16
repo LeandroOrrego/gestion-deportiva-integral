@@ -141,24 +141,28 @@ export async function getTransactionFormData(organizationId: string) {
 export async function createTransaction(data: any) {
     const supabase = await createClient();
 
+    // Extraemos is_credit para no enviarlo directo a la BD (si no existe la columna)
+    const { is_credit, ...insertData } = data;
+    const initialStatus = is_credit ? 'pending' : 'confirmed';
+
     const { error } = await supabase
         .from('transacciones')
         .insert({
-            ...data,
-            status: 'confirmed',
+            ...insertData,
+            status: initialStatus,
             created_at: new Date().toISOString()
         });
 
     if (error) throw error;
 
-    if (data.cuenta_id) {
-        const monto = Number(data.monto);
-        const adjustment = data.flow === 'income' ? monto : -monto;
+    if (insertData.cuenta_id && !is_credit) {
+        const monto = Number(insertData.monto);
+        const adjustment = insertData.flow === 'income' ? monto : -monto;
 
         const { data: account } = await supabase
             .from('cuentas')
             .select('saldo_inicial')
-            .eq('id', data.cuenta_id)
+            .eq('id', insertData.cuenta_id)
             .single();
 
         if (account) {
@@ -185,7 +189,7 @@ export async function updateTransaction(id: string, data: any) {
     const validColumns = [
         'fecha', 'flow', 'monto', 'descripcion', 'fondo',
         'comprobante_numero', 'cuenta_id', 'entidad_id',
-        'transaction_type_id', 'category_id', 'atleta_id', 'evento_id', 'cantidad'
+        'transaction_type_id', 'category_id', 'atleta_id', 'evento_id', 'cantidad', 'fecha_vencimiento'
     ];
 
     const updateData: any = {};
@@ -274,6 +278,50 @@ export async function voidTransaction(id: string) {
                 .update({ saldo_inicial: newBalance })
                 .eq('id', transaction.cuenta_id);
         }
+    }
+
+    return true;
+}
+
+export async function marcarComoPagado(id: string, cuenta_id: string, fecha_pago: string) {
+    const supabase = await createClient();
+
+    const { data: original, error: fetchError } = await supabase
+        .from('transacciones')
+        .select('monto, flow, status')
+        .eq('id', id)
+        .single();
+        
+    if (fetchError || !original) throw new Error("Transacción no encontrada");
+    if (original.status === 'confirmed') throw new Error("La transacción ya está pagada");
+
+    const { error: updateError } = await supabase
+        .from('transacciones')
+        .update({
+            status: 'confirmed',
+            cuenta_id: cuenta_id,
+            fecha_pago: fecha_pago,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    const monto = Number(original.monto);
+    const adjustment = original.flow === 'income' ? monto : -monto;
+
+    const { data: account } = await supabase
+        .from('cuentas')
+        .select('saldo_inicial')
+        .eq('id', cuenta_id)
+        .single();
+
+    if (account) {
+        const newBalance = Number(account.saldo_inicial) + adjustment;
+        await supabase
+            .from('cuentas')
+            .update({ saldo_inicial: newBalance })
+            .eq('id', cuenta_id);
     }
 
     return true;
@@ -454,4 +502,33 @@ export async function createTransferencia(data: {
     }
 
     return { error: null };
+}
+
+export async function getPendingExpenses(organizationId: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('transacciones')
+        .select(`
+            id,
+            fecha,
+            flow,
+            monto,
+            status,
+            descripcion,
+            fecha_vencimiento,
+            entidades (id, nombre)
+        `)
+        .eq('organization_id', organizationId)
+        .eq('status', 'pending')
+        .eq('flow', 'expense')
+        .is('deleted_at', null)
+        .order('fecha_vencimiento', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching pending expenses:', error);
+        return [];
+    }
+
+    return data || [];
 }

@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Pencil, Search, MessageCircle, FileText, Trash2 } from "lucide-react";
 import { ReceiptPDFButton } from "./ReceiptPDFButton";
+import { useAuth } from "@/contexts/auth-context";
 
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,8 @@ export function TransactionTable({
     totalBalance,
     accounts = [],
 }: TransactionTableProps) {
+    const { profile } = useAuth();
+    const isViewer = profile?.rol === 'viewer';
     const { toast } = useToast();
     const [voidId, setVoidId] = useState<string | null>(null);
 
@@ -238,17 +241,19 @@ Generado por ClubManager PY`;
 
                                             <ReceiptPDFButton transaction={transaction} />
 
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                                                onClick={() => onEdit(transaction)}
-                                                title="Editar"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
+                                            {!isViewer && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                                    onClick={() => onEdit(transaction)}
+                                                    title="Editar"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            )}
 
-                                            {transaction.status !== 'voided' && (
+                                            {!isViewer && transaction.status !== 'voided' && (
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"

@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { liquidarEvento } from "@/lib/queries/eventos";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -23,9 +24,13 @@ interface LiquidarButtonProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function LiquidarButton({ eventoId, isLiquidado }: LiquidarButtonProps) {
+    const { profile } = useAuth();
+    const isViewer = profile?.rol === 'viewer';
     const { toast } = useToast();
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+
+    if (isViewer) return null;
 
     if (isLiquidado) {
         return (

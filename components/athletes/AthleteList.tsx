@@ -57,6 +57,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/auth-context";
 
 type Plantel = string;
 type DocStatus = "ok" | "falta";
@@ -138,6 +139,8 @@ interface AthleteListProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AthleteList({ athletes, onRegister, onEdit, onViewContract, onGenerateReport }: AthleteListProps) {
+    const { profile } = useAuth();
+    const isViewer = profile?.rol === 'viewer';
     const router = useRouter();
     const { toast } = useToast();
     const [plantelFilter, setPlantelFilter] = useState<string>("todos");
@@ -191,14 +194,16 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract, onGe
                             Generar Reporte
                         </Button>
                     )}
-                    <Button
-                        onClick={onRegister}
-                        className="w-full sm:w-auto gap-2"
-                        id="btn-registrar-atleta"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Registrar Atleta
-                    </Button>
+                    {!isViewer && (
+                        <Button
+                            onClick={onRegister}
+                            className="w-full sm:w-auto gap-2"
+                            id="btn-registrar-atleta"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Registrar Atleta
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -337,13 +342,15 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract, onGe
                                                     {athlete.nombre_completo.split(" ")[0]}
                                                 </DropdownMenuLabel>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => onEdit?.(athlete)}
-                                                    className="gap-2 cursor-pointer"
-                                                >
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                    Editar atleta
-                                                </DropdownMenuItem>
+                                                {!isViewer && (
+                                                    <DropdownMenuItem
+                                                        onClick={() => onEdit?.(athlete)}
+                                                        className="gap-2 cursor-pointer"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                        Editar atleta
+                                                    </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuItem
                                                     onClick={() => router.push(`/atletas/${athlete.id}`)}
                                                     className="gap-2 cursor-pointer"
@@ -351,14 +358,18 @@ export function AthleteList({ athletes, onRegister, onEdit, onViewContract, onGe
                                                     <FileText className="h-3.5 w-3.5" />
                                                     Ver Perfil / Contrato
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => setDeleteTarget(athlete)}
-                                                    className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                    Eliminar atleta
-                                                </DropdownMenuItem>
+                                                {!isViewer && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => setDeleteTarget(athlete)}
+                                                            className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/40"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                            Eliminar atleta
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>

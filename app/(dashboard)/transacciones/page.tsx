@@ -34,6 +34,7 @@ import jsPDF from "jspdf";
 
 export default function TransactionsPage() {
     const { profile } = useAuth();
+    const isViewer = profile?.rol === 'viewer';
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any[]>([]);
@@ -449,18 +450,22 @@ export default function TransactionsPage() {
                             </div>
                         </PopoverContent>
                     </Popover>
-                    <Button
-                        variant="outline"
-                        onClick={() => setIsTransferOpen(true)}
-                        className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                    >
-                        <ArrowLeftRight className="mr-2 h-4 w-4" />
-                        Transferir
-                    </Button>
-                    <Button onClick={openCreateModal} className="bg-brand-primary hover:bg-brand-primary/90">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nueva Transacción
-                    </Button>
+                    {!isViewer && (
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsTransferOpen(true)}
+                            className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        >
+                            <ArrowLeftRight className="mr-2 h-4 w-4" />
+                            Transferir
+                        </Button>
+                    )}
+                    {!isViewer && (
+                        <Button onClick={openCreateModal} className="bg-brand-primary hover:bg-brand-primary/90">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nueva Transacción
+                        </Button>
+                    )}
                 </div>
             </div>
 

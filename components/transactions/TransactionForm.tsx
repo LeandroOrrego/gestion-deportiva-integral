@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,16 @@ const transactionSchema = z.object({
     descripcion: z.string().optional(),
     evento_id: z.string().optional(),
     cantidad: z.string().optional(),
+    is_credit: z.boolean(),
+    fecha_vencimiento: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.is_credit && !data.fecha_vencimiento) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "La fecha de vencimiento es obligatoria si es a crédito",
+            path: ["fecha_vencimiento"],
+        });
+    }
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -107,6 +118,8 @@ export function TransactionForm({
             descripcion: "",
             evento_id: "",
             cantidad: "",
+            is_credit: false,
+            fecha_vencimiento: "",
         },
     });
 
@@ -121,7 +134,9 @@ export function TransactionForm({
                 descripcion: initialData.descripcion || "",
                 evento_id: initialData.evento_id || "",
                 cantidad: initialData.cantidad ? String(initialData.cantidad) : "",
-                fecha: initialData.fecha?.split('T')[0] || todayLocal()
+                fecha: initialData.fecha?.split('T')[0] || todayLocal(),
+                is_credit: initialData.is_credit || false,
+                fecha_vencimiento: initialData.fecha_vencimiento?.split('T')[0] || "",
             });
         } else {
             form.reset({
@@ -137,6 +152,8 @@ export function TransactionForm({
                 descripcion: "",
                 evento_id: "",
                 cantidad: "",
+                is_credit: false,
+                fecha_vencimiento: "",
             });
         }
     }, [initialData, form, open]);
@@ -309,6 +326,44 @@ export function TransactionForm({
                                             </FormItem>
                                         )}
                                     />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="is_credit"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                        disabled={!!initialData}
+                                                    />
+                                                </FormControl>
+                                                <div className="space-y-1 leading-none">
+                                                    <FormLabel>Es una transacción a crédito (Pendiente de pago/cobro)</FormLabel>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Marcá esta opción si el pago o cobro se realizará más adelante.
+                                                    </p>
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {form.watch("is_credit") && (
+                                        <FormField
+                                            control={form.control}
+                                            name="fecha_vencimiento"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Fecha de Vencimiento</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="date" className="px-4 py-3 h-auto" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
                                 </div>
 
                                 <Separator />

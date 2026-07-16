@@ -12,6 +12,7 @@ import type { Evento } from "@/lib/queries/eventos";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/auth-context";
 import {
     Table,
     TableBody,
@@ -63,6 +64,8 @@ function resultadoBadge(resultado: string | null) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function EventList({ eventos, onCreateEvent }: EventListProps) {
+    const { profile } = useAuth();
+    const isViewer = profile?.rol === 'viewer';
     return (
         <div className="space-y-4">
             {/* Header */}
@@ -73,10 +76,12 @@ export function EventList({ eventos, onCreateEvent }: EventListProps) {
                         Partidos, prácticas y registro de asistencia
                     </p>
                 </div>
-                <Button onClick={onCreateEvent} className="gap-2">
-                    <CalendarPlus className="h-4 w-4" />
-                    Nuevo Evento
-                </Button>
+                {!isViewer && (
+                    <Button onClick={onCreateEvent} className="gap-2">
+                        <CalendarPlus className="h-4 w-4" />
+                        Nuevo Evento
+                    </Button>
+                )}
             </div>
 
             {/* Table */}
@@ -86,14 +91,16 @@ export function EventList({ eventos, onCreateEvent }: EventListProps) {
                     <p className="text-sm text-muted-foreground">
                         No hay eventos registrados todavía.
                     </p>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-3"
-                        onClick={onCreateEvent}
-                    >
-                        Crear primer evento
-                    </Button>
+                    {!isViewer && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-3"
+                            onClick={onCreateEvent}
+                        >
+                            Crear primer evento
+                        </Button>
+                    )}
                 </div>
             ) : (
                 <div className="border rounded-xl overflow-hidden">

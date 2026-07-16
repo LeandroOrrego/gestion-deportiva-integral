@@ -30,11 +30,12 @@ export default async function DashboardPage() {
 
     const { data: profile } = await supabase
         .from('perfiles')
-        .select('organization_id')
+        .select('organization_id, rol')
         .eq('id', user.id)
         .single();
 
     if (!profile?.organization_id) return <div className="p-8">Error: Usuario sin organización asignada.</div>;
+    const isViewer = profile.rol === 'viewer';
 
     const orgId = profile.organization_id;
     const today = getLocalDate();
@@ -278,11 +279,13 @@ export default async function DashboardPage() {
                                     Registra tus primeros ingresos o egresos para ver el resumen aquí.
                                 </p>
                             </div>
-                            <Button asChild>
-                                <Link href="/transacciones">
-                                    Registrar primera transacción
-                                </Link>
-                            </Button>
+                            {!isViewer && (
+                                <Button asChild>
+                                    <Link href="/transacciones">
+                                        Registrar primera transacción
+                                    </Link>
+                                </Button>
+                            )}
                         </div>
                     )}
                 </CardContent>
