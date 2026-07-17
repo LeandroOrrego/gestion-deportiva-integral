@@ -60,7 +60,7 @@ const transactionSchema = z.object({
     transaction_type_id: z.string().min(1, "La categoría financiera es requerida"),
     category_id: z.string().optional(),
     entidad_id: z.string().optional(),
-    cuenta_id: z.string().min(1, "La cuenta es requerida"),
+    cuenta_id: z.string().optional(),
     comprobante_numero: z.string().optional(),
     descripcion: z.string().optional(),
     evento_id: z.string().optional(),
@@ -73,6 +73,13 @@ const transactionSchema = z.object({
             code: z.ZodIssueCode.custom,
             message: "La fecha de vencimiento es obligatoria si es a crédito",
             path: ["fecha_vencimiento"],
+        });
+    }
+    if (!data.is_credit && (!data.cuenta_id || data.cuenta_id.trim() === "")) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "La cuenta es requerida",
+            path: ["cuenta_id"],
         });
     }
 });
@@ -168,6 +175,7 @@ export function TransactionForm({
                 cantidad: (values.cantidad && values.cantidad !== "") ? parseInt(values.cantidad, 10) : null,
                 category_id: (values.category_id && values.category_id !== "" && values.category_id !== "none") ? values.category_id : null,
                 entidad_id: (values.entidad_id && values.entidad_id !== "" && values.entidad_id !== "none") ? values.entidad_id : null,
+                cuenta_id: (values.is_credit || !values.cuenta_id || values.cuenta_id === "") ? null : values.cuenta_id,
             };
             await onSubmit(sanitized);
             onOpenChange(false);
@@ -494,28 +502,30 @@ export function TransactionForm({
                                             )}
                                         />
 
-                                        <FormField
-                                            control={form.control}
-                                            name="cuenta_id"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Cuenta</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                                        <FormControl>
-                                                            <SelectTrigger className="px-4 py-3 h-auto">
-                                                                <SelectValue placeholder="Cuenta" />
-                                                            </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                            {formData.accounts.map(c => (
-                                                                <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
+                                        {!form.watch("is_credit") && (
+                                            <FormField
+                                                control={form.control}
+                                                name="cuenta_id"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Cuenta</FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="px-4 py-3 h-auto">
+                                                                    <SelectValue placeholder="Cuenta" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {formData.accounts.map(c => (
+                                                                    <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-5">
