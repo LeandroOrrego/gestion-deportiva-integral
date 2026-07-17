@@ -12,6 +12,7 @@ import {
     Plus,
     BarChart3,
     Settings,
+    Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +52,11 @@ export function MobileNav() {
     ];
 
     const moreRoutes = [
+        {
+            label: "Cuentas a Pagar",
+            icon: Receipt,
+            href: "/cuentas-a-pagar",
+        },
         {
             label: "Reportes",
             icon: BarChart3,

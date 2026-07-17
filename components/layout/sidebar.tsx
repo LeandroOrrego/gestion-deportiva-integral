@@ -17,6 +17,7 @@ import {
     ChevronRight,
     Trophy,
     LogOut,
+    Receipt,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -41,6 +42,12 @@ export function Sidebar({ className }: SidebarProps) {
             icon: ArrowLeftRight,
             href: "/transacciones",
             color: "text-violet-500",
+        },
+        {
+            label: "Cuentas a Pagar",
+            icon: Receipt,
+            href: "/cuentas-a-pagar",
+            color: "text-amber-500",
         },
         {
             label: "Atletas",
