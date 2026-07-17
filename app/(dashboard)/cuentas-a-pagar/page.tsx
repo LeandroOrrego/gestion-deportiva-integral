@@ -4,7 +4,21 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { getPendingExpenses, getTransactionFormData } from "@/lib/queries/transactions";
 import { differenceInDays, parseISO, startOfDay } from "date-fns";
+import { Pencil, Trash2 } from "lucide-react";
 import { MarkAsPaidModal } from "./MarkAsPaidModal";
+import { TransactionForm } from "@/components/transactions/TransactionForm";
+import { updateTransaction, voidTransaction } from "@/lib/queries/transactions";
+import { useToast } from "@/hooks/use-toast";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -12,22 +26,29 @@ import {
 
 export default function CuentasAPagarPage() {
     const { profile } = useAuth();
+    const isViewer = profile?.rol === 'viewer';
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [expenses, setExpenses] = useState<any[]>([]);
     const [accounts, setAccounts] = useState<any[]>([]);
+    const [fullFormData, setFullFormData] = useState({ types: [], categories: [], accounts: [], entities: [] });
     const [selectedExpense, setSelectedExpense] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState<any>(null);
+    const [voidId, setVoidId] = useState<string | null>(null);
 
     const loadData = async () => {
         if (!profile?.organization_id) return;
         setLoading(true);
         try {
-            const [pendingData, formData] = await Promise.all([
+            const [pendingData, formDataRes] = await Promise.all([
                 getPendingExpenses(profile.organization_id),
                 getTransactionFormData(profile.organization_id)
             ]);
             setExpenses(pendingData);
-            setAccounts(formData.accounts);
+            setAccounts(formDataRes.accounts);
+            setFullFormData(formDataRes as any);
         } catch (error) {
             console.error(error);
         } finally {
@@ -61,6 +82,43 @@ export default function CuentasAPagarPage() {
     const handleOpenModal = (expense: any) => {
         setSelectedExpense(expense);
         setIsModalOpen(true);
+    };
+
+    const handleEdit = (expense: any) => {
+        setEditingTransaction({
+            ...expense,
+            is_credit: true,
+        });
+        setIsFormOpen(true);
+    };
+
+    const handleUpdate = async (values: any) => {
+        if (!editingTransaction) return;
+        const payload = {
+            ...values,
+            category_id: values.category_id === "none" || values.category_id === "" ? null : values.category_id,
+            entidad_id: values.entidad_id === "none" || values.entidad_id === "" ? null : values.entidad_id,
+        };
+        try {
+            await updateTransaction(editingTransaction.id, payload);
+            toast({ title: "Éxito", description: "Cuenta a pagar actualizada correctamente." });
+            loadData();
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo actualizar.", variant: "destructive" });
+        }
+    };
+
+    const handleVoid = async () => {
+        if (!voidId) return;
+        try {
+            await voidTransaction(voidId);
+            toast({ title: "Eliminada", description: "La cuenta a pagar ha sido eliminada." });
+            loadData();
+        } catch (error) {
+            toast({ title: "Error", description: "No se pudo eliminar.", variant: "destructive" });
+        } finally {
+            setVoidId(null);
+        }
     };
 
     return (
@@ -106,10 +164,34 @@ export default function CuentasAPagarPage() {
                                         <TableCell className="text-right font-semibold">
                                             ₲ {new Intl.NumberFormat('es-PY').format(Number(expense.monto))}
                                         </TableCell>
-                                        <TableCell>
-                                            <Button variant="outline" size="sm" onClick={() => handleOpenModal(expense)}>
-                                                Pagar
-                                            </Button>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => handleOpenModal(expense)}>
+                                                    Pagar
+                                                </Button>
+                                                {!isViewer && (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                                            onClick={() => handleEdit(expense)}
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                                            onClick={() => setVoidId(expense.id)}
+                                                            title="Eliminar"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 )
@@ -121,7 +203,7 @@ export default function CuentasAPagarPage() {
 
             {selectedExpense && (
                 <MarkAsPaidModal 
-                    key={selectedExpense.id}
+                    key={`pay-${selectedExpense.id}`}
                     open={isModalOpen}
                     onOpenChange={setIsModalOpen}
                     transaction={selectedExpense}
@@ -133,6 +215,34 @@ export default function CuentasAPagarPage() {
                     }}
                 />
             )}
+
+            <TransactionForm
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                onSubmit={handleUpdate}
+                initialData={editingTransaction}
+                formData={fullFormData}
+            />
+
+            <AlertDialog open={!!voidId} onOpenChange={(open) => !open && setVoidId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar cuenta a pagar?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción eliminará el compromiso de pago pendiente. No afectará a ninguna caja.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleVoid}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Eliminar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
