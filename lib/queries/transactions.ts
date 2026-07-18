@@ -142,6 +142,10 @@ export async function getTransactionFormData(organizationId: string) {
 export async function createTransaction(data: any) {
     const supabase = await createClient();
 
+    const fechaVencimientoFinal = (data.fecha_vencimiento && data.fecha_vencimiento.trim() !== "") 
+      ? data.fecha_vencimiento 
+      : null;
+
     // Extraemos is_credit para no enviarlo directo a la BD (si no existe la columna)
     const { is_credit, ...insertData } = data;
     const initialStatus = is_credit ? 'pending' : 'confirmed';
@@ -150,6 +154,7 @@ export async function createTransaction(data: any) {
         .from('transacciones')
         .insert({
             ...insertData,
+            fecha_vencimiento: fechaVencimientoFinal,
             status: initialStatus,
             created_at: new Date().toISOString()
         });

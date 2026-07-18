@@ -58,15 +58,15 @@ const transactionSchema = z.object({
     fondo: z.enum(["deportivo", "administrativo"]),
     monto: z.string().min(1, "El monto es requerido").transform(v => v.replace(/\./g, '')),
     transaction_type_id: z.string().min(1, "La categoría financiera es requerida"),
-    category_id: z.string().optional().transform(v => v === "" ? undefined : v),
-    entidad_id: z.string().optional().transform(v => v === "" ? undefined : v),
-    cuenta_id: z.string().optional().transform(v => v === "" ? undefined : v),
-    comprobante_numero: z.string().optional().transform(v => v === "" ? undefined : v),
-    descripcion: z.string().optional().transform(v => v === "" ? undefined : v),
-    evento_id: z.string().optional().transform(v => v === "" ? undefined : v),
-    cantidad: z.string().optional().transform(v => v === "" ? undefined : v),
+    category_id: z.string().optional(),
+    entidad_id: z.string().optional(),
+    cuenta_id: z.string().optional(),
+    comprobante_numero: z.string().optional(),
+    descripcion: z.string().optional(),
+    evento_id: z.string().optional(),
+    cantidad: z.string().optional(),
     is_credit: z.boolean(),
-    fecha_vencimiento: z.string().optional().transform(v => v === "" ? undefined : v),
+    fecha_vencimiento: z.string().optional(),
 }).superRefine((data, ctx) => {
     if (data.is_credit && !data.fecha_vencimiento) {
         ctx.addIssue({
@@ -176,6 +176,9 @@ export function TransactionForm({
                 category_id: (values.category_id && values.category_id !== "" && values.category_id !== "none") ? values.category_id : null,
                 entidad_id: (values.entidad_id && values.entidad_id !== "" && values.entidad_id !== "none") ? values.entidad_id : null,
                 cuenta_id: (values.is_credit || !values.cuenta_id || values.cuenta_id === "") ? null : values.cuenta_id,
+                fecha_vencimiento: (!values.is_credit || !values.fecha_vencimiento || values.fecha_vencimiento.trim() === "") ? null : values.fecha_vencimiento,
+                comprobante_numero: (!values.comprobante_numero || values.comprobante_numero.trim() === "") ? null : values.comprobante_numero,
+                descripcion: (!values.descripcion || values.descripcion.trim() === "") ? null : values.descripcion,
             };
             await onSubmit(sanitized);
             onOpenChange(false);
