@@ -58,15 +58,15 @@ const transactionSchema = z.object({
     fondo: z.enum(["deportivo", "administrativo"]),
     monto: z.string().min(1, "El monto es requerido").transform(v => v.replace(/\./g, '')),
     transaction_type_id: z.string().min(1, "La categoría financiera es requerida"),
-    category_id: z.string().optional(),
-    entidad_id: z.string().optional(),
-    cuenta_id: z.string().optional(),
-    comprobante_numero: z.string().optional(),
-    descripcion: z.string().optional(),
-    evento_id: z.string().optional(),
-    cantidad: z.string().optional(),
+    category_id: z.string().optional().transform(v => v === "" ? undefined : v),
+    entidad_id: z.string().optional().transform(v => v === "" ? undefined : v),
+    cuenta_id: z.string().optional().transform(v => v === "" ? undefined : v),
+    comprobante_numero: z.string().optional().transform(v => v === "" ? undefined : v),
+    descripcion: z.string().optional().transform(v => v === "" ? undefined : v),
+    evento_id: z.string().optional().transform(v => v === "" ? undefined : v),
+    cantidad: z.string().optional().transform(v => v === "" ? undefined : v),
     is_credit: z.boolean(),
-    fecha_vencimiento: z.string().optional(),
+    fecha_vencimiento: z.string().optional().transform(v => v === "" ? undefined : v),
 }).superRefine((data, ctx) => {
     if (data.is_credit && !data.fecha_vencimiento) {
         ctx.addIssue({
