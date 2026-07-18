@@ -169,10 +169,13 @@ export default async function DeudasYCompromisosPage() {
                             <tbody>
                                 {cuentasAPagar.map((gasto, i) => {
                                     const status = getExpirationStatus(gasto.fecha_vencimiento);
+                                    const entidadNombre = Array.isArray(gasto.entidades) 
+                                        ? gasto.entidades[0]?.nombre 
+                                        : (gasto.entidades as any)?.nombre;
                                     return (
                                         <tr key={i} className="border-b print:border-gray-300">
                                             <td className={`py-2 px-2 ${status.color}`}>{status.text}</td>
-                                            <td className="py-2 px-2">{gasto.entidades?.nombre || "-"}</td>
+                                            <td className="py-2 px-2">{entidadNombre || "-"}</td>
                                             <td className="py-2 px-2">{gasto.descripcion || "-"}</td>
                                             <td className="py-2 px-2 text-right font-medium">Gs. {fmt(gasto.monto)}</td>
                                         </tr>
