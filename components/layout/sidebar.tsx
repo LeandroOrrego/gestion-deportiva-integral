@@ -18,6 +18,7 @@ import {
     Trophy,
     LogOut,
     Receipt,
+    Landmark,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -48,6 +49,12 @@ export function Sidebar({ className }: SidebarProps) {
             icon: Receipt,
             href: "/cuentas-a-pagar",
             color: "text-amber-500",
+        },
+        {
+            label: "Deudas y Compromisos",
+            icon: Landmark,
+            href: "/reportes/deudas-y-compromisos",
+            color: "text-red-500",
         },
         {
             label: "Atletas",

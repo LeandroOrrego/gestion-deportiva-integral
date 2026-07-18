@@ -13,6 +13,7 @@ import {
     BarChart3,
     Settings,
     Receipt,
+    Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +57,11 @@ export function MobileNav() {
             label: "Cuentas a Pagar",
             icon: Receipt,
             href: "/cuentas-a-pagar",
+        },
+        {
+            label: "Deudas y Compromisos",
+            icon: Landmark,
+            href: "/reportes/deudas-y-compromisos",
         },
         {
             label: "Reportes",

@@ -162,4 +162,10 @@
     overflow: visible !important;
     max-height: none !important;
   }
+
+  /* Evitar que las filas de la tabla se corten a la mitad entre páginas */
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
