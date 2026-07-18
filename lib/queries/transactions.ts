@@ -541,7 +541,7 @@ export async function getSaldoPrestamos(organizationId: string) {
     const { data: prestamoTypes } = await supabase
         .from('transaction_types')
         .select('id')
-        .in('nombre', ['Préstamo Financiero', 'Préstamo de atleta'])
+        .in('nombre', ['Préstamo Financiero'])
         .eq('active', true)
         .is('deleted_at', null);
 
