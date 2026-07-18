@@ -6,6 +6,16 @@ import { differenceInDays, parseISO, startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
+type UnifiedDebt = {
+    entidad: string;
+    categoria: string;
+    descripcion: string;
+    valor: number;
+    estado: string;
+    color: string;
+    sortPriority: number;
+};
+
 export default async function DeudasYCompromisosPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -25,8 +35,7 @@ export default async function DeudasYCompromisosPage() {
     // 1. Obtener Cuentas a Pagar (Gastos Pendientes)
     const cuentasAPagar = organizationId ? await getPendingExpenses(organizationId) : [];
 
-    // 2. Obtener Préstamos y Financieros (usando la función)
-    // Devuelve: id, nombre, total_recibido, total_devuelto, saldo_neto
+    // 2. Obtener Préstamos y Financieros
     const prestamosYFinancieros = organizationId ? await getSaldoPrestamos(organizationId) : [];
 
     // 3. Obtener Saldos con Atletas
@@ -36,27 +45,10 @@ export default async function DeudasYCompromisosPage() {
         movimientos = await getAllMovimientos(organizationId);
     }
 
-    // Index movements by atleta_id
     const movsByAtleta = new Map<string, any[]>();
     movimientos.forEach(m => {
         if (!movsByAtleta.has(m.atleta_id)) movsByAtleta.set(m.atleta_id, []);
         movsByAtleta.get(m.atleta_id)!.push(m);
-    });
-
-    const agrupadosAtletas = atletas.reduce((acc, a) => {
-        const cat = a.categorias?.nombre || "Sin Categoría";
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push(a);
-        return acc;
-    }, {} as Record<string, typeof atletas>);
-
-    const ORDER = ["Primera", "Sub-20", "Sub-19", "Sub-16", "Sub-14"];
-    const keysAtletas = Object.keys(agrupadosAtletas).sort((a, b) => {
-        const iA = ORDER.indexOf(a), iB = ORDER.indexOf(b);
-        if (iA !== -1 && iB !== -1) return iA - iB;
-        if (iA !== -1) return -1;
-        if (iB !== -1) return 1;
-        return a.localeCompare(b);
     });
 
     const CONCEPTOS_PACTADO = ['Pase', 'Prima'];
@@ -80,41 +72,96 @@ export default async function DeudasYCompromisosPage() {
         return new Intl.NumberFormat("es-PY").format(n);
     };
 
-    // 4. Cálculos de Resumen General
-    const totalCuentasAPagar = cuentasAPagar.reduce((acc, curr) => acc + Number(curr.monto), 0);
-    
-    // Filtrar los saldos netos positivos o cero
-    const totalPrestamos = prestamosYFinancieros
-        .filter(p => p.saldo_neto > 0)
-        .reduce((acc, curr) => acc + Number(curr.saldo_neto), 0);
-    
-    let totalAtletas = 0;
-    atletas.forEach(a => {
-        const { saldo } = getSaldoAtleta(a.id);
-        if (saldo > 0) totalAtletas += saldo;
-    });
-
-    const totalDeudaClub = totalCuentasAPagar + totalPrestamos + totalAtletas;
-
+    // Helper de fechas y estado
     const getExpirationStatus = (fecha_vencimiento: string | null) => {
-        if (!fecha_vencimiento) return { text: "Sin fecha", color: "text-muted-foreground" };
+        if (!fecha_vencimiento) return { text: "Sin fecha", color: "text-muted-foreground", priority: 3 };
         const hoy = startOfDay(new Date());
         const vencimiento = startOfDay(parseISO(fecha_vencimiento));
         const diff = differenceInDays(vencimiento, hoy);
 
-        if (diff < 0) return { text: `Vencida hace ${Math.abs(diff)} días`, color: "text-red-600 font-semibold" };
-        if (diff <= 7) return { text: diff === 0 ? "Vence hoy" : `Vence en ${diff} días`, color: "text-yellow-600 font-semibold" };
+        if (diff < 0) return { text: `Vencida hace ${Math.abs(diff)} días`, color: "text-red-600 font-semibold", priority: 1 };
+        if (diff <= 7) return { text: diff === 0 ? "Vence hoy" : `Vence en ${diff} días`, color: "text-yellow-600 font-semibold", priority: 2 };
         
         const [y, m, d] = fecha_vencimiento.split('T')[0].split('-');
-        return { text: `${d}/${m}/${y}`, color: "" };
+        return { text: `${d}/${m}/${y}`, color: "", priority: 3 };
     };
+
+    // --- CONSTRUCCIÓN DEL ARRAY UNIFICADO ---
+    const unifiedData: UnifiedDebt[] = [];
+
+    let totalCuentasAPagar = 0;
+    cuentasAPagar.forEach(gasto => {
+        const monto = Number(gasto.monto);
+        totalCuentasAPagar += monto;
+        
+        const status = getExpirationStatus(gasto.fecha_vencimiento);
+        const entidadNombre = Array.isArray(gasto.entidades) 
+            ? gasto.entidades[0]?.nombre 
+            : (gasto.entidades as any)?.nombre;
+
+        unifiedData.push({
+            entidad: entidadNombre || "-",
+            categoria: "Cuenta a Pagar",
+            descripcion: gasto.descripcion || "-",
+            valor: monto,
+            estado: status.text,
+            color: status.color,
+            sortPriority: status.priority
+        });
+    });
+
+    let totalPrestamos = 0;
+    prestamosYFinancieros.forEach(prestamo => {
+        const saldoNeto = Number(prestamo.saldo_neto);
+        if (saldoNeto > 0) {
+            totalPrestamos += saldoNeto;
+            unifiedData.push({
+                entidad: prestamo.nombre || "-",
+                categoria: "Préstamo Financiero",
+                descripcion: "Saldo pendiente de devolución",
+                valor: saldoNeto,
+                estado: "Sin vencimiento",
+                color: "text-muted-foreground",
+                sortPriority: 3
+            });
+        }
+    });
+
+    let totalAtletas = 0;
+    atletas.forEach(a => {
+        const { saldo } = getSaldoAtleta(a.id);
+        if (saldo > 0) {
+            totalAtletas += saldo;
+            unifiedData.push({
+                entidad: a.nombre_completo,
+                categoria: "Prima/Pase Atleta",
+                descripcion: "Prima/Pase pendiente",
+                valor: saldo,
+                estado: "Sin vencimiento",
+                color: "text-muted-foreground",
+                sortPriority: 3
+            });
+        }
+    });
+
+    const totalDeudaClub = totalCuentasAPagar + totalPrestamos + totalAtletas;
+
+    // --- ORDENAMIENTO ---
+    unifiedData.sort((a, b) => {
+        // 1. Prioridad de estado (1: Vencida, 2: A Vencer, 3: Resto)
+        if (a.sortPriority !== b.sortPriority) {
+            return a.sortPriority - b.sortPriority;
+        }
+        // 2. Orden descendente por valor
+        return b.valor - a.valor;
+    });
 
     return (
         <div className="flex-1 p-8 pt-6 print:p-0">
             <div className="print:hidden flex items-center justify-between mb-8">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Deudas y Compromisos del Club</h2>
-                    <p className="text-muted-foreground">Reporte unificado de cuentas a pagar, préstamos y saldos con atletas.</p>
+                    <p className="text-muted-foreground">Reporte unificado de todas las obligaciones pendientes.</p>
                 </div>
                 <PrintButton />
             </div>
@@ -128,7 +175,7 @@ export default async function DeudasYCompromisosPage() {
                     </h2>
                 </div>
 
-                {/* 1. RESUMEN GENERAL */}
+                {/* RESUMEN GENERAL (Intacto) */}
                 <div className="mb-10 print:mb-6">
                     <h3 className="text-xl font-semibold mb-4 print:text-lg border-b pb-2">Resumen General</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2">
@@ -151,126 +198,36 @@ export default async function DeudasYCompromisosPage() {
                     </div>
                 </div>
 
-                {/* 2. SECCIÓN: Cuentas a Pagar */}
-                <div className="mb-10 print:mb-6 print:break-inside-avoid">
-                    <h3 className="text-xl font-semibold mb-4 print:text-lg border-b pb-2">1. Cuentas a Pagar</h3>
-                    {cuentasAPagar.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No hay cuentas a pagar registradas.</p>
-                    ) : (
-                        <table className="w-full text-sm border-collapse">
-                            <thead>
-                                <tr className="border-b bg-muted/50 print:bg-transparent">
-                                    <th className="py-2 px-2 text-left font-medium">Vencimiento</th>
-                                    <th className="py-2 px-2 text-left font-medium">Entidad</th>
-                                    <th className="py-2 px-2 text-left font-medium">Descripción</th>
-                                    <th className="py-2 px-2 text-right font-medium">Monto</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {cuentasAPagar.map((gasto, i) => {
-                                    const status = getExpirationStatus(gasto.fecha_vencimiento);
-                                    const entidadNombre = Array.isArray(gasto.entidades) 
-                                        ? gasto.entidades[0]?.nombre 
-                                        : (gasto.entidades as any)?.nombre;
-                                    return (
-                                        <tr key={i} className="border-b print:border-gray-300">
-                                            <td className={`py-2 px-2 ${status.color}`}>{status.text}</td>
-                                            <td className="py-2 px-2">{entidadNombre || "-"}</td>
-                                            <td className="py-2 px-2">{gasto.descripcion || "-"}</td>
-                                            <td className="py-2 px-2 text-right font-medium">Gs. {fmt(gasto.monto)}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-
-                {/* 3. SECCIÓN: Préstamos y Financieros */}
-                <div className="mb-10 print:mb-6 print:break-inside-avoid">
-                    <h3 className="text-xl font-semibold mb-4 print:text-lg border-b pb-2">2. Préstamos y Financieros</h3>
-                    {prestamosYFinancieros.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No hay préstamos o deudas financieras registradas.</p>
-                    ) : (
-                        <table className="w-full text-sm border-collapse">
-                            <thead>
-                                <tr className="border-b bg-muted/50 print:bg-transparent">
-                                    <th className="py-2 px-2 text-left font-medium">Entidad</th>
-                                    <th className="py-2 px-2 text-right font-medium">Total Recibido</th>
-                                    <th className="py-2 px-2 text-right font-medium">Total Devuelto</th>
-                                    <th className="py-2 px-2 text-right font-medium">Saldo Pendiente</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {prestamosYFinancieros.map((prestamo, i) => {
-                                    if (prestamo.saldo_neto <= 0) return null;
-                                    return (
-                                        <tr key={i} className="border-b print:border-gray-300">
-                                            <td className="py-2 px-2">{prestamo.nombre || "-"}</td>
-                                            <td className="py-2 px-2 text-right">Gs. {fmt(prestamo.total_recibido)}</td>
-                                            <td className="py-2 px-2 text-right">Gs. {fmt(prestamo.total_devuelto)}</td>
-                                            <td className="py-2 px-2 text-right font-bold">Gs. {fmt(prestamo.saldo_neto)}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-
-                {/* 4. SECCIÓN: Saldos con Atletas */}
+                {/* TABLA UNIFICADA DE DETALLES */}
                 <div className="print:break-inside-avoid">
-                    <h3 className="text-xl font-semibold mb-4 print:text-lg border-b pb-2">3. Saldos con Atletas</h3>
+                    <h3 className="text-xl font-semibold mb-4 print:text-lg border-b pb-2">Detalle de Obligaciones</h3>
                     
-                    {keysAtletas.map(cat => {
-                        const lista = agrupadosAtletas[cat];
-                        const items = lista
-                            .map(a => {
-                                const { totalPactado, totalPagado, saldo } = getSaldoAtleta(a.id);
-                                return { ...a, totalPactado, totalPagado, saldo };
-                            })
-                            .filter(a => a.saldo > 0)
-                            .sort((a, b) => b.saldo - a.saldo);
-
-                        if (items.length === 0) return null;
-
-                        const catTotal = items.reduce((s, a) => s + a.saldo, 0);
-
-                        return (
-                            <div key={cat} className="mb-6 print:mb-4">
-                                <h4 className="text-lg font-semibold mb-3 print:text-base print:mb-2 text-primary">{cat}</h4>
-                                <table className="w-full text-sm border-collapse">
-                                    <thead>
-                                        <tr className="border-b bg-muted/50 print:bg-transparent">
-                                            <th className="py-2 px-2 text-left font-medium">Jugador</th>
-                                            <th className="py-2 px-2 text-right font-medium">Total Pactado</th>
-                                            <th className="py-2 px-2 text-right font-medium">Pagado a la fecha</th>
-                                            <th className="py-2 px-2 text-right font-medium">Saldo Pendiente</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {items.map((a, i) => (
-                                            <tr key={i} className="border-b print:border-gray-300">
-                                                <td className="py-2 px-2">
-                                                    <div className="font-medium">{a.nombre_completo}</div>
-                                                    <div className="text-xs text-muted-foreground">CI: {a.documento}</div>
-                                                </td>
-                                                <td className="py-2 px-2 text-right">Gs. {fmt(a.totalPactado)}</td>
-                                                <td className="py-2 px-2 text-right">Gs. {fmt(a.totalPagado)}</td>
-                                                <td className="py-2 px-2 text-right font-bold">Gs. {fmt(a.saldo)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr className="bg-muted/30 font-semibold print:bg-gray-100">
-                                            <td className="py-2 px-2" colSpan={3}>Subtotal {cat}</td>
-                                            <td className="py-2 px-2 text-right">Gs. {fmt(catTotal)}</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        );
-                    })}
+                    {unifiedData.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No hay deudas ni compromisos pendientes.</p>
+                    ) : (
+                        <table className="w-full text-sm border-collapse">
+                            <thead>
+                                <tr className="border-b bg-muted/50 print:bg-transparent">
+                                    <th className="py-2 px-2 text-left font-medium">Entidad</th>
+                                    <th className="py-2 px-2 text-left font-medium">Categoría</th>
+                                    <th className="py-2 px-2 text-left font-medium">Descripción</th>
+                                    <th className="py-2 px-2 text-right font-medium">Valor</th>
+                                    <th className="py-2 px-2 text-left font-medium">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {unifiedData.map((item, i) => (
+                                    <tr key={i} className="border-b print:border-gray-300">
+                                        <td className="py-2 px-2 font-medium">{item.entidad}</td>
+                                        <td className="py-2 px-2 text-muted-foreground">{item.categoria}</td>
+                                        <td className="py-2 px-2 text-muted-foreground">{item.descripcion}</td>
+                                        <td className="py-2 px-2 text-right font-semibold">Gs. {fmt(item.valor)}</td>
+                                        <td className={`py-2 px-2 ${item.color}`}>{item.estado}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
 
             </div>
