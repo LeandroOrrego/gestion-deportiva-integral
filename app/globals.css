@@ -147,3 +147,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Permitir que los contenedores del dashboard crezcan para imprimir todas las páginas */
+  .h-screen.overflow-hidden,
+  .flex.flex-1.flex-col.overflow-hidden,
+  main.overflow-y-auto {
+    height: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
