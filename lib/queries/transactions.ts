@@ -121,6 +121,7 @@ export async function getTransactionFormData(organizationId: string) {
             .from('transaction_types')
             .select('id, nombre, flow')
             .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+            .eq('active', true)
             .is('deleted_at', null)
             .order('nombre'),
         supabase.from('categorias').select('id, nombre').eq('organization_id', organizationId),
@@ -531,4 +532,68 @@ export async function getPendingExpenses(organizationId: string) {
     }
 
     return data || [];
+}
+
+export async function getSaldoPrestamos(organizationId: string) {
+    const supabase = await createClient();
+
+    // 1. Identificar IDs de los tipos de préstamo
+    const { data: prestamoTypes } = await supabase
+        .from('transaction_types')
+        .select('id')
+        .in('nombre', ['Préstamo Financiero', 'Préstamo de atleta'])
+        .eq('active', true)
+        .is('deleted_at', null);
+
+    const typeIds = prestamoTypes?.map(pt => pt.id) || [];
+    if (typeIds.length === 0) return [];
+
+    // 2. Traer transacciones confirmadas de esos tipos
+    const { data: transacciones } = await supabase
+        .from('transacciones')
+        .select(`
+            monto,
+            flow,
+            entidades (id, nombre)
+        `)
+        .eq('organization_id', organizationId)
+        .eq('status', 'confirmed') // Préstamos reales, no pendientes
+        .in('transaction_type_id', typeIds)
+        .is('deleted_at', null);
+
+    if (!transacciones) return [];
+
+    // 3. Agrupar por entidad y calcular saldo
+    const agrupado = new Map<string, any>();
+
+    transacciones.forEach(t => {
+        const entidad = t.entidades as any;
+        if (!entidad) return;
+        
+        const entidadId = entidad.id;
+        const entidadNombre = entidad.nombre;
+
+        if (!agrupado.has(entidadId)) {
+            agrupado.set(entidadId, {
+                id: entidadId,
+                nombre: entidadNombre, // Este es el campo que se usa en la tabla
+                total_recibido: 0,
+                total_devuelto: 0,
+                saldo_neto: 0
+            });
+        }
+
+        const stats = agrupado.get(entidadId);
+
+        // Ingreso = préstamo recibido (el club recibe la plata), Egreso = cuota/devolución pagada por el club
+        if (t.flow === 'income') {
+            stats.total_recibido += Number(t.monto);
+        } else if (t.flow === 'expense') {
+            stats.total_devuelto += Number(t.monto);
+        }
+
+        stats.saldo_neto = stats.total_recibido - stats.total_devuelto;
+    });
+
+    return Array.from(agrupado.values());
 }
