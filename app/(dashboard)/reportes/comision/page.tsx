@@ -62,14 +62,14 @@ export default async function ReporteComisionPage({
         const movs = movsByAtleta.get(atletaId) || [];
         const pase = movs.filter(m => m.tipo === "HABER" && /pase/i.test(m.concepto || "")).reduce((s: number, m: any) => s + Number(m.monto), 0);
         const prima = movs.filter(m => m.tipo === "HABER" && /prima/i.test(m.concepto || "")).reduce((s: number, m: any) => s + Number(m.monto), 0);
-        const totalPactado = pase + prima;
+        const totalHaber = movs.filter(m => m.tipo === "HABER").reduce((s: number, m: any) => s + Number(m.monto), 0);
         const totalPagado = movs.filter(m => m.tipo === "DEBE").reduce((s: number, m: any) => s + Number(m.monto), 0);
-        const saldo = totalPactado - totalPagado;
-        return { pase, prima, totalPactado, totalPagado, saldo };
+        const saldo = totalHaber - totalPagado;
+        return { pase, prima, totalHaber, totalPagado, saldo };
     }
 
     // Grand totals
-    let gPase = 0, gPrima = 0, gVPract = 0, gPVict = 0, gPEmp = 0, gPDerr = 0, gPactado = 0, gPagado = 0, gSaldo = 0;
+    let gPase = 0, gPrima = 0, gVPract = 0, gPVict = 0, gPEmp = 0, gPDerr = 0, gHaber = 0, gPagado = 0, gSaldo = 0;
 
     return (
         <div className="flex-1 p-8 pt-6 print:p-0">
@@ -95,7 +95,7 @@ export default async function ReporteComisionPage({
                     )}
 
                     {keys.map(cat => {
-                        let sPase = 0, sPrima = 0, sVPract = 0, sPVict = 0, sPEmp = 0, sPDerr = 0, sPactado = 0, sPagado = 0, sSaldo = 0;
+                        let sPase = 0, sPrima = 0, sVPract = 0, sPVict = 0, sPEmp = 0, sPDerr = 0, sHaber = 0, sPagado = 0, sSaldo = 0;
 
                         const rows = agrupados[cat].map(a => {
                             const ac = a.acuerdo_2026;
@@ -105,13 +105,13 @@ export default async function ReporteComisionPage({
                             sPVict += Number(ac?.premio_victoria) || 0;
                             sPEmp += Number(ac?.premio_empate) || 0;
                             sPDerr += Number(ac?.premio_derrota) || 0;
-                            sPactado += s.totalPactado; sPagado += s.totalPagado; sSaldo += s.saldo;
+                            sHaber += s.totalHaber; sPagado += s.totalPagado; sSaldo += s.saldo;
                             return { a, ac, s };
                         });
 
                         gPase += sPase; gPrima += sPrima; gVPract += sVPract;
                         gPVict += sPVict; gPEmp += sPEmp; gPDerr += sPDerr;
-                        gPactado += sPactado; gPagado += sPagado; gSaldo += sSaldo;
+                        gHaber += sHaber; gPagado += sPagado; gSaldo += sSaldo;
 
                         return (
                             <div key={cat} className="print:break-inside-avoid">
@@ -130,7 +130,7 @@ export default async function ReporteComisionPage({
                                             <th className="py-2 px-2 text-right font-semibold">P. Victoria</th>
                                             <th className="py-2 px-2 text-right font-semibold">P. Empate</th>
                                             <th className="py-2 px-2 text-right font-semibold">P. Derrota</th>
-                                            <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-gray-100">Total Pactado</th>
+                                            <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-gray-100">Total Haber</th>
                                             <th className="py-2 px-2 text-right font-semibold bg-emerald-50 dark:bg-emerald-950/30 print:bg-gray-100">Total Pagado</th>
                                             <th className="py-2 px-2 text-right font-semibold bg-amber-50 dark:bg-amber-950/30 print:bg-gray-100">Saldo</th>
                                         </tr>
@@ -148,7 +148,7 @@ export default async function ReporteComisionPage({
                                                     <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_victoria)}</td>
                                                     <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_empate)}</td>
                                                     <td className="py-1.5 px-2 text-right">{fmt(ac?.premio_derrota)}</td>
-                                                    <td className="py-1.5 px-2 text-right font-semibold">{fmt(s.totalPactado)}</td>
+                                                    <td className="py-1.5 px-2 text-right font-semibold">{fmt(s.totalHaber)}</td>
                                                     <td className="py-1.5 px-2 text-right font-semibold text-emerald-600">{fmt(s.totalPagado)}</td>
                                                     <td className={`py-1.5 px-2 text-right ${saldoColor}`}>{fmt(s.saldo)}</td>
                                                 </tr>
@@ -164,7 +164,7 @@ export default async function ReporteComisionPage({
                                             <td className="py-2 px-2 text-right">{fmt(sPVict)}</td>
                                             <td className="py-2 px-2 text-right">{fmt(sPEmp)}</td>
                                             <td className="py-2 px-2 text-right">{fmt(sPDerr)}</td>
-                                            <td className="py-2 px-2 text-right">{fmt(sPactado)}</td>
+                                            <td className="py-2 px-2 text-right">{fmt(sHaber)}</td>
                                             <td className="py-2 px-2 text-right text-emerald-700">{fmt(sPagado)}</td>
                                             <td className={`py-2 px-2 text-right ${sSaldo > 0 ? "text-red-700" : sSaldo === 0 ? "text-emerald-700" : "text-blue-700"}`}>{fmt(sSaldo)}</td>
                                         </tr>
@@ -188,7 +188,7 @@ export default async function ReporteComisionPage({
                                         <td className="py-3 px-2 text-right">{fmt(gPVict)}</td>
                                         <td className="py-3 px-2 text-right">{fmt(gPEmp)}</td>
                                         <td className="py-3 px-2 text-right">{fmt(gPDerr)}</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gPactado)}</td>
+                                        <td className="py-3 px-2 text-right">{fmt(gHaber)}</td>
                                         <td className="py-3 px-2 text-right text-emerald-300">{fmt(gPagado)}</td>
                                         <td className={`py-3 px-2 text-right ${gSaldo > 0 ? "text-red-300" : gSaldo === 0 ? "text-emerald-300" : "text-blue-300"}`}>{fmt(gSaldo)}</td>
                                     </tr>
