@@ -53,11 +53,14 @@ export default async function PrevisionPremiacionPage() {
 
                     {keys.map(cat => {
                         let sPremio = 0, sBonoSF = 0, sTotalSF = 0, sBonoFinal = 0, sTotalFinal = 0;
+                        let missingCount = 0;
 
                         const rows = agrupados[cat].map(a => {
                             const ac = a.acuerdo_2026;
                             const premioVictoria = Number(ac?.premio_victoria) || 0;
                             const hasAgreement = ac && premioVictoria > 0;
+                            
+                            if (!hasAgreement) missingCount++;
                             
                             const bonoSF = premioVictoria * 0.25;
                             const totalSF = premioVictoria + bonoSF;
@@ -127,6 +130,11 @@ export default async function PrevisionPremiacionPage() {
                                             </tr>
                                         </tfoot>
                                     </table>
+                                    {missingCount > 0 && (
+                                        <p className="mt-2 text-xs italic text-gray-500 dark:text-gray-400">
+                                            {missingCount} de {agrupados[cat].length} jugadores sin acuerdo cargado — el total de esta categoría no incluye sus premios.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         );
