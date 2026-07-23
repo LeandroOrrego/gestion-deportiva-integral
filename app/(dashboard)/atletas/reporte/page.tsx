@@ -61,12 +61,10 @@ export default async function ReporteSaldosPage() {
         return new Intl.NumberFormat("es-PY").format(n);
     };
 
-    const CONCEPTOS_PACTADO = ['Pase', 'Prima'];
-
     function getSaldo(atletaId: string) {
         const movs = movsByAtleta.get(atletaId) || [];
-        const totalPactado = movs
-            .filter(m => m.tipo === "HABER" && CONCEPTOS_PACTADO.includes(m.concepto))
+        const totalHaber = movs
+            .filter(m => m.tipo === "HABER")
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
         const totalPagado = movs
             .filter(m => m.tipo === "DEBE" && (
@@ -74,11 +72,11 @@ export default async function ReporteSaldosPage() {
                 m.concepto?.toLowerCase().includes('prima')
             ))
             .reduce((s: number, m: any) => s + Number(m.monto), 0);
-        return { totalPactado, totalPagado, saldo: totalPactado - totalPagado };
+        return { totalHaber, totalPagado, saldo: totalHaber - totalPagado };
     }
 
     // Grand totals
-    let gPactado = 0, gPagado = 0, gSaldo = 0;
+    let gHaber = 0, gPagado = 0, gSaldo = 0;
 
     return (
         <div className="flex-1 p-8 pt-6 print:p-0">
@@ -104,17 +102,17 @@ export default async function ReporteSaldosPage() {
                     )}
 
                     {keys.map(cat => {
-                        let sPactado = 0, sPagado = 0, sSaldo = 0;
+                        let sHaber = 0, sPagado = 0, sSaldo = 0;
 
                         const rows = agrupados[cat].map(a => {
                             const s = getSaldo(a.id);
-                            sPactado += s.totalPactado;
+                            sHaber += s.totalHaber;
                             sPagado += s.totalPagado;
                             sSaldo += s.saldo;
                             return { a, s };
                         });
 
-                        gPactado += sPactado; gPagado += sPagado; gSaldo += sSaldo;
+                        gHaber += sHaber; gPagado += sPagado; gSaldo += sSaldo;
 
                         return (
                             <div key={cat} className="print:break-inside-avoid">
@@ -130,7 +128,7 @@ export default async function ReporteSaldosPage() {
                                             <tr className="border-b border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900">
                                                 <th className="py-2 px-2 font-semibold">Atleta</th>
                                                 <th className="py-2 px-2 font-semibold">C.I.</th>
-                                                <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-transparent">Total Pactado</th>
+                                                <th className="py-2 px-2 text-right font-semibold bg-blue-50 dark:bg-blue-950/30 print:bg-transparent">Total Haber</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-emerald-50 dark:bg-emerald-950/30 print:bg-transparent">Total Pagado</th>
                                                 <th className="py-2 px-2 text-right font-semibold bg-amber-50 dark:bg-amber-950/30 print:bg-transparent">Saldo</th>
                                             </tr>
@@ -147,7 +145,7 @@ export default async function ReporteSaldosPage() {
                                                     >
                                                         <td className="py-1.5 px-2 font-medium">{a.nombre_completo}</td>
                                                         <td className="py-1.5 px-2 font-mono">{a.documento || "-"}</td>
-                                                        <td className="py-1.5 px-2 text-right font-semibold text-blue-600">{fmt(s.totalPactado)}</td>
+                                                        <td className="py-1.5 px-2 text-right font-semibold text-blue-600">{fmt(s.totalHaber)}</td>
                                                         <td className="py-1.5 px-2 text-right font-semibold text-emerald-600">{fmt(s.totalPagado)}</td>
                                                         <td className={`py-1.5 px-2 text-right ${saldoColor}`}>{fmt(s.saldo)}</td>
                                                     </tr>
@@ -157,7 +155,7 @@ export default async function ReporteSaldosPage() {
                                         <tfoot className="bg-zinc-100 dark:bg-zinc-900 font-bold">
                                             <tr>
                                                 <td colSpan={2} className="py-2 px-2 uppercase">Subtotal {cat}</td>
-                                                <td className="py-2 px-2 text-right text-blue-700">{fmt(sPactado)}</td>
+                                                <td className="py-2 px-2 text-right text-blue-700">{fmt(sHaber)}</td>
                                                 <td className="py-2 px-2 text-right text-emerald-700">{fmt(sPagado)}</td>
                                                 <td className={`py-2 px-2 text-right ${sSaldo > 0 ? "text-red-700" : "text-emerald-700"}`}>
                                                     {fmt(sSaldo)}
@@ -176,7 +174,7 @@ export default async function ReporteSaldosPage() {
                                 <tbody>
                                     <tr>
                                         <td colSpan={2} className="py-3 px-2 uppercase text-sm">Total General</td>
-                                        <td className="py-3 px-2 text-right">{fmt(gPactado)}</td>
+                                        <td className="py-3 px-2 text-right">{fmt(gHaber)}</td>
                                         <td className="py-3 px-2 text-right text-emerald-300">{fmt(gPagado)}</td>
                                         <td className={`py-3 px-2 text-right ${gSaldo > 0 ? "text-red-300" : gSaldo === 0 ? "text-emerald-300" : "text-blue-300"}`}>
                                             {fmt(gSaldo)}
