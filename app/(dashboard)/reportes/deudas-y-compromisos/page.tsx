@@ -163,7 +163,6 @@ export default async function DeudasYCompromisosPage({
         }
     });
 
-    const totalDeudaClub = totalCuentasAPagar + totalPrestamos + totalAtletas;
 
     // --- ORDENAMIENTO ---
     unifiedData.sort((a, b) => {
