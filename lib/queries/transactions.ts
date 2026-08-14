@@ -16,6 +16,7 @@ export type TransactionFilter = {
     evento_id?: string;
     temporada?: string;
     entidad_id?: string;
+    transaction_type_id?: string;
 }
 
 export async function getTransactions(organizationId: string, filters: TransactionFilter) {
@@ -77,6 +78,10 @@ export async function getTransactions(organizationId: string, filters: Transacti
 
     if (filters.entidad_id && filters.entidad_id !== 'all') {
         query = query.eq('entidad_id', filters.entidad_id);
+    }
+
+    if (filters.transaction_type_id && filters.transaction_type_id !== 'all') {
+        query = query.eq('transaction_type_id', filters.transaction_type_id);
     }
 
     if (filters.excludeCajaMovements) {
@@ -528,6 +533,7 @@ export async function getPendingExpenses(organizationId: string) {
             status,
             descripcion,
             fecha_vencimiento,
+            transaction_type_id,
             entidades (id, nombre)
         `)
         .eq('organization_id', organizationId)
@@ -564,6 +570,7 @@ export async function getSaldoPrestamos(organizationId: string) {
         .select(`
             monto,
             flow,
+            transaction_type_id,
             entidades (id, nombre)
         `)
         .eq('organization_id', organizationId)

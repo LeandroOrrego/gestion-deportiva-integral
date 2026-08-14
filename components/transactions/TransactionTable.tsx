@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 import { Pencil, Search, MessageCircle, FileText, Trash2 } from "lucide-react";
 import { ReceiptPDFButton } from "./ReceiptPDFButton";
 import { EntityFilter } from "./EntityFilter";
+import { CategoryFilter } from "./CategoryFilter";
 import { useAuth } from "@/contexts/auth-context";
 
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +52,7 @@ interface TransactionTableProps {
     totalBalance: number;
     accounts?: any[];
     entities?: any[];
+    transactionTypes?: any[];
 }
 
 export function TransactionTable({
@@ -62,6 +64,7 @@ export function TransactionTable({
     totalBalance,
     accounts = [],
     entities = [],
+    transactionTypes = [],
 }: TransactionTableProps) {
     const { profile } = useAuth();
     const isViewer = profile?.rol === 'viewer';
@@ -140,6 +143,12 @@ export function TransactionTable({
                             entities={entities} 
                             value={filters.entidad_id || 'all'} 
                             onChange={(val) => onFilterChange({ ...filters, entidad_id: val })} 
+                        />
+
+                        <CategoryFilter 
+                            categories={transactionTypes} 
+                            value={filters.transaction_type_id || 'all'} 
+                            onChange={(val) => onFilterChange({ ...filters, transaction_type_id: val })} 
                         />
                     </div>
 

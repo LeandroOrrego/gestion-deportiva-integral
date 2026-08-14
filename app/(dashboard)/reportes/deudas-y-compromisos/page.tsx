@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 type UnifiedDebt = {
     entidadId: string;
+    categoryId?: string;
     entidad: string;
     categoria: string;
     descripcion: string;
@@ -25,6 +26,7 @@ export default async function DeudasYCompromisosPage({
 }) {
     const params = await searchParams;
     const entidadIdFilter = typeof params.entidad_id === 'string' ? params.entidad_id : 'all';
+    const categoryIdFilter = typeof params.category_id === 'string' ? params.category_id : 'all';
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -70,6 +72,14 @@ export default async function DeudasYCompromisosPage({
         ...(entidadesData || []),
         ...atletas.map(a => ({ id: a.id, nombre: a.nombre_completo }))
     ].sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const { data: transactionTypes } = await supabase
+        .from('transaction_types')
+        .select('id, nombre, flow, active')
+        .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+        .eq('active', true)
+        .is('deleted_at', null)
+        .order('nombre');
 
     const CONCEPTOS_PACTADO = ['Pase', 'Prima'];
 
@@ -119,6 +129,7 @@ export default async function DeudasYCompromisosPage({
 
         unifiedData.push({
             entidadId: (entidadObj as any)?.id || "",
+            categoryId: gasto.transaction_type_id || "",
             entidad: (entidadObj as any)?.nombre || "-",
             categoria: "Cuenta a Pagar",
             descripcion: gasto.descripcion || "-",
@@ -176,7 +187,10 @@ export default async function DeudasYCompromisosPage({
 
     let filteredData = unifiedData;
     if (entidadIdFilter && entidadIdFilter !== 'all') {
-        filteredData = unifiedData.filter(item => String(item.entidadId) === String(entidadIdFilter));
+        filteredData = filteredData.filter(item => String(item.entidadId) === String(entidadIdFilter));
+    }
+    if (categoryIdFilter && categoryIdFilter !== 'all') {
+        filteredData = filteredData.filter(item => String(item.categoryId) === String(categoryIdFilter));
     }
 
     totalCuentasAPagar = filteredData.filter(d => d.categoria === "Cuenta a Pagar").reduce((acc, curr) => acc + curr.valor, 0);
@@ -192,7 +206,7 @@ export default async function DeudasYCompromisosPage({
                     <p className="text-muted-foreground">Reporte unificado de todas las obligaciones pendientes.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <DeudasFilter entities={filterOptions} />
+                    <DeudasFilter entities={filterOptions} categories={transactionTypes || []} />
                     <PrintButton />
                 </div>
             </div>

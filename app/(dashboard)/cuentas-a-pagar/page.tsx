@@ -7,6 +7,7 @@ import { differenceInDays, parseISO, startOfDay } from "date-fns";
 import { Pencil, Trash2 } from "lucide-react";
 import { MarkAsPaidModal } from "./MarkAsPaidModal";
 import { EntityFilter } from "@/components/transactions/EntityFilter";
+import { CategoryFilter } from "@/components/transactions/CategoryFilter";
 import { TransactionForm } from "@/components/transactions/TransactionForm";
 import { updateTransaction, voidTransaction } from "@/lib/queries/transactions";
 import { useToast } from "@/hooks/use-toast";
@@ -39,6 +40,7 @@ export default function CuentasAPagarPage() {
     const [editingTransaction, setEditingTransaction] = useState<any>(null);
     const [voidId, setVoidId] = useState<string | null>(null);
     const [entidadFilter, setEntidadFilter] = useState<string>("all");
+    const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
     const loadData = async () => {
         if (!profile?.organization_id) return;
@@ -64,6 +66,7 @@ export default function CuentasAPagarPage() {
 
     const filteredExpenses = expenses.filter((expense) => {
         if (entidadFilter !== "all" && String(expense.entidades?.id) !== String(entidadFilter)) return false;
+        if (categoryFilter !== "all" && String(expense.transaction_type_id) !== String(categoryFilter)) return false;
         return true;
     });
 
@@ -135,13 +138,23 @@ export default function CuentasAPagarPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Cuentas a Pagar</h2>
                     <p className="text-muted-foreground">Gestiona tus compromisos de pago pendientes.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground font-medium">Filtrar por Entidad:</span>
-                    <EntityFilter 
-                        entities={fullFormData.entities} 
-                        value={entidadFilter} 
-                        onChange={setEntidadFilter} 
-                    />
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground font-medium">Entidad:</span>
+                        <EntityFilter 
+                            entities={fullFormData.entities} 
+                            value={entidadFilter} 
+                            onChange={setEntidadFilter} 
+                        />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground font-medium">Categoría:</span>
+                        <CategoryFilter 
+                            categories={fullFormData.types} 
+                            value={categoryFilter} 
+                            onChange={setCategoryFilter} 
+                        />
+                    </div>
                 </div>
             </div>
 
