@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Pencil, Search, MessageCircle, FileText, Trash2 } from "lucide-react";
 import { ReceiptPDFButton } from "./ReceiptPDFButton";
+import { EntityFilter } from "./EntityFilter";
 import { useAuth } from "@/contexts/auth-context";
 
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,7 @@ interface TransactionTableProps {
     onVoid: (id: string) => void;
     totalBalance: number;
     accounts?: any[];
+    entities?: any[];
 }
 
 export function TransactionTable({
@@ -59,6 +61,7 @@ export function TransactionTable({
     onVoid,
     totalBalance,
     accounts = [],
+    entities = [],
 }: TransactionTableProps) {
     const { profile } = useAuth();
     const isViewer = profile?.rol === 'viewer';
@@ -132,6 +135,12 @@ export function TransactionTable({
                                 ))}
                             </SelectContent>
                         </Select>
+
+                        <EntityFilter 
+                            entities={entities} 
+                            value={filters.entidad_id || 'all'} 
+                            onChange={(val) => onFilterChange({ ...filters, entidad_id: val })} 
+                        />
                     </div>
 
                     <div className="relative flex-1 md:max-w-xs">

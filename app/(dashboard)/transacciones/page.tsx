@@ -49,6 +49,7 @@ export default function TransactionsPage() {
             flow: 'all',
             fondo: 'all',
             cuenta_id: 'all',
+            entidad_id: 'all',
             search: ''
         };
     });
@@ -89,7 +90,7 @@ export default function TransactionsPage() {
 
     useEffect(() => {
         loadData();
-    }, [profile?.organization_id, filters.startDate, filters.endDate, filters.flow, filters.fondo, filters.search, filters.cuenta_id]);
+    }, [profile?.organization_id, filters.startDate, filters.endDate, filters.flow, filters.fondo, filters.search, filters.cuenta_id, filters.entidad_id]);
 
     const handleCreate = async (values: any) => {
         if (!profile?.organization_id) return;
@@ -479,6 +480,7 @@ export default function TransactionsPage() {
                 onVoid={handleVoid}
                 totalBalance={totalBalance}
                 accounts={formData.accounts}
+                entities={formData.entities}
             />
 
             <TransactionForm

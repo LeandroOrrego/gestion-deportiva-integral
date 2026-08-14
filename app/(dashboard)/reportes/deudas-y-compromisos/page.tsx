@@ -3,10 +3,12 @@ import { getPendingExpenses, getSaldoPrestamos } from "@/lib/queries/transaction
 import { createClient } from "@/lib/supabase/server";
 import { PrintButton } from "@/app/(dashboard)/atletas/reporte/PrintButton"; 
 import { differenceInDays, parseISO, startOfDay } from "date-fns";
+import { DeudasFilter } from "./DeudasFilter";
 
 export const dynamic = "force-dynamic";
 
 type UnifiedDebt = {
+    entidadId: string;
     entidad: string;
     categoria: string;
     descripcion: string;
@@ -16,7 +18,14 @@ type UnifiedDebt = {
     sortPriority: number;
 };
 
-export default async function DeudasYCompromisosPage() {
+export default async function DeudasYCompromisosPage({ 
+    searchParams 
+}: { 
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }> 
+}) {
+    const params = await searchParams;
+    const entidadIdFilter = typeof params.entidad_id === 'string' ? params.entidad_id : 'all';
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -50,6 +59,17 @@ export default async function DeudasYCompromisosPage() {
         if (!movsByAtleta.has(m.atleta_id)) movsByAtleta.set(m.atleta_id, []);
         movsByAtleta.get(m.atleta_id)!.push(m);
     });
+
+    const { data: entidadesData } = await supabase
+        .from('entidades')
+        .select('id, nombre')
+        .eq('organization_id', organizationId)
+        .order('nombre');
+
+    const filterOptions = [
+        ...(entidadesData || []),
+        ...atletas.map(a => ({ id: a.id, nombre: a.nombre_completo }))
+    ].sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     const CONCEPTOS_PACTADO = ['Pase', 'Prima'];
 
@@ -95,12 +115,11 @@ export default async function DeudasYCompromisosPage() {
         totalCuentasAPagar += monto;
         
         const status = getExpirationStatus(gasto.fecha_vencimiento);
-        const entidadNombre = Array.isArray(gasto.entidades) 
-            ? gasto.entidades[0]?.nombre 
-            : (gasto.entidades as any)?.nombre;
+        const entidadObj = Array.isArray(gasto.entidades) ? gasto.entidades[0] : gasto.entidades;
 
         unifiedData.push({
-            entidad: entidadNombre || "-",
+            entidadId: (entidadObj as any)?.id || "",
+            entidad: (entidadObj as any)?.nombre || "-",
             categoria: "Cuenta a Pagar",
             descripcion: gasto.descripcion || "-",
             valor: monto,
@@ -114,8 +133,8 @@ export default async function DeudasYCompromisosPage() {
     prestamosYFinancieros.forEach(prestamo => {
         const saldoNeto = Number(prestamo.saldo_neto);
         if (saldoNeto > 0) {
-            totalPrestamos += saldoNeto;
             unifiedData.push({
+                entidadId: prestamo.id || "",
                 entidad: prestamo.nombre || "-",
                 categoria: "Préstamo Financiero",
                 descripcion: "Saldo pendiente de devolución",
@@ -131,8 +150,8 @@ export default async function DeudasYCompromisosPage() {
     atletas.forEach(a => {
         const { saldo } = getSaldoAtleta(a.id);
         if (saldo > 0) {
-            totalAtletas += saldo;
             unifiedData.push({
+                entidadId: a.id,
                 entidad: a.nombre_completo,
                 categoria: "Prima/Pase Atleta",
                 descripcion: "Prima/Pase pendiente",
@@ -156,14 +175,27 @@ export default async function DeudasYCompromisosPage() {
         return b.valor - a.valor;
     });
 
+    let filteredData = unifiedData;
+    if (entidadIdFilter && entidadIdFilter !== 'all') {
+        filteredData = unifiedData.filter(item => String(item.entidadId) === String(entidadIdFilter));
+    }
+
+    totalCuentasAPagar = filteredData.filter(d => d.categoria === "Cuenta a Pagar").reduce((acc, curr) => acc + curr.valor, 0);
+    totalPrestamos = filteredData.filter(d => d.categoria === "Préstamo Financiero").reduce((acc, curr) => acc + curr.valor, 0);
+    totalAtletas = filteredData.filter(d => d.categoria === "Prima/Pase Atleta").reduce((acc, curr) => acc + curr.valor, 0);
+    const totalDeudaClub = totalCuentasAPagar + totalPrestamos + totalAtletas;
+
     return (
         <div className="flex-1 p-8 pt-6 print:p-0">
-            <div className="print:hidden flex items-center justify-between mb-8">
+            <div className="print:hidden flex flex-col md:flex-row gap-4 md:items-center justify-between mb-8">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Deudas y Compromisos del Club</h2>
                     <p className="text-muted-foreground">Reporte unificado de todas las obligaciones pendientes.</p>
                 </div>
-                <PrintButton />
+                <div className="flex items-center gap-4">
+                    <DeudasFilter entities={filterOptions} />
+                    <PrintButton />
+                </div>
             </div>
 
             <div id="reporte-impresion" className="print:bg-white print:text-black">
@@ -216,7 +248,7 @@ export default async function DeudasYCompromisosPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {unifiedData.map((item, i) => (
+                                {filteredData.map((item, i) => (
                                     <tr key={i} className="border-b print:border-gray-300">
                                         <td className="py-2 px-2 font-medium">{item.entidad}</td>
                                         <td className="py-2 px-2 text-muted-foreground">{item.categoria}</td>

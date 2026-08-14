@@ -15,6 +15,7 @@ export type TransactionFilter = {
     cuenta_id?: string;
     evento_id?: string;
     temporada?: string;
+    entidad_id?: string;
 }
 
 export async function getTransactions(organizationId: string, filters: TransactionFilter) {
@@ -72,6 +73,10 @@ export async function getTransactions(organizationId: string, filters: Transacti
 
     if (filters.cuenta_id && filters.cuenta_id !== 'all') {
         query = query.eq('cuenta_id', filters.cuenta_id);
+    }
+
+    if (filters.entidad_id && filters.entidad_id !== 'all') {
+        query = query.eq('entidad_id', filters.entidad_id);
     }
 
     if (filters.excludeCajaMovements) {
