@@ -36,6 +36,7 @@ export async function getResumenFinanciero(organizationId: string, mes: number, 
         .select('saldo_inicial')
         .eq('organization_id', organizationId)
         .eq('activo', true)
+        .eq('es_efectivo', true)  // Solo cuentas de efectivo real (excluye donaciones en especie)
         .is('deleted_at', null);
 
     const saldo_acumulado = cuentas
@@ -153,6 +154,7 @@ export async function getSaldoInicialCuentas(organizationId: string): Promise<nu
         .select('saldo_inicial')
         .eq('organization_id', organizationId)
         .eq('activo', true)
+        .eq('es_efectivo', true)  // Solo cuentas de efectivo real (excluye donaciones en especie)
         .is('deleted_at', null);
     return data?.reduce((sum, c) => sum + Number(c.saldo_inicial), 0) || 0;
 }

@@ -284,11 +284,26 @@ export default function TransactionsPage() {
             doc.text("SALDOS ACTUALES EN CAJA", margin, y);
             y += 7;
             doc.setFont("helvetica", "normal");
-            accounts.filter((a: any) => a.saldo_inicial > 0).forEach((acc: any) => {
+            const cuentasEfectivo = accounts.filter((a: any) => a.es_efectivo !== false && a.saldo_inicial > 0);
+            const cuentasEspecie = accounts.filter((a: any) => a.es_efectivo === false);
+            cuentasEfectivo.forEach((acc: any) => {
                 doc.text(`• ${acc.nombre}:`, margin + 5, y);
                 doc.text(formatPDFCurrency(acc.saldo_inicial), 210 - margin, y, { align: "right" });
                 y += 6;
             });
+            if (cuentasEspecie.length > 0) {
+                y += 2;
+                doc.setTextColor(180, 130, 0);
+                const especieTotal = cuentasEspecie.reduce((s: number, a: any) => s + Number(a.saldo_inicial), 0);
+                doc.text(`📦 Donaciones en Especie (no efectivo):`, margin + 5, y);
+                doc.text(formatPDFCurrency(especieTotal), 210 - margin, y, { align: "right" });
+                doc.setTextColor(150);
+                y += 5;
+                doc.setFontSize(7);
+                doc.text("(informativo, no forma parte del saldo de caja disponible)", margin + 5, y);
+                doc.setFontSize(8);
+                y += 4;
+            }
 
             doc.setFontSize(8);
             doc.setTextColor(150);
@@ -345,9 +360,15 @@ export default function TransactionsPage() {
             message += `━━━━━━━━━━━━━━━━━━━\n`;
             message += `🏦 SALDOS ACTUALES EN CAJA\n`;
 
-            accounts.filter((a: any) => a.saldo_inicial > 0).forEach((acc: any) => {
+            const cuentasEfectivoWA = accounts.filter((a: any) => a.es_efectivo !== false && a.saldo_inicial > 0);
+            const cuentasEspecieWA = accounts.filter((a: any) => a.es_efectivo === false);
+            cuentasEfectivoWA.forEach((acc: any) => {
                 message += `• ${acc.nombre}: ${formatCurrency(acc.saldo_inicial)}\n`;
             });
+            if (cuentasEspecieWA.length > 0) {
+                const especieTotal = cuentasEspecieWA.reduce((s: number, a: any) => s + Number(a.saldo_inicial), 0);
+                message += `📦 _Donaciones en Especie (no efectivo): ${formatCurrency(especieTotal)}_\n`;
+            }
 
             message += `\n_Generado por ClubManager PY_`;
 

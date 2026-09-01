@@ -405,6 +405,7 @@ export async function getTotalAccountBalance(organizationId: string) {
         .select('saldo_inicial')
         .eq('organization_id', organizationId)
         .eq('activo', true)
+        .eq('es_efectivo', true)  // Solo cuentas de efectivo real (excluye donaciones en especie)
         .is('deleted_at', null);
 
     const saldoGeneral = accounts?.reduce((sum, c) => sum + Number(c.saldo_inicial), 0) || 0;

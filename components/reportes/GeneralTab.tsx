@@ -244,10 +244,37 @@ export default function GeneralTab({ orgId }: { orgId: string }) {
                     <TableHead className="pl-5">Cuenta</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right pr-5">Saldo</TableHead>
                 </TableRow></TableHeader><TableBody>
                     {saldos.length === 0 ? <TableRow><TableCell colSpan={3} className="h-16 text-center text-muted-foreground">Sin cuentas.</TableCell></TableRow>
-                    : saldos.map(c => <TableRow key={c.id}><TableCell className="pl-5 font-medium">{c.nombre}</TableCell>
-                        <TableCell><Badge variant="outline">{c.tipo || "General"}</Badge></TableCell>
-                        <TableCell className="text-right pr-5 font-mono font-bold text-blue-600 dark:text-blue-400">{fmtGs(Number(c.saldo_inicial))}</TableCell></TableRow>)}
+                    : <>
+                        {/* Cuentas de efectivo real */}
+                        {saldos.filter((c: any) => c.es_efectivo !== false).map(c => <TableRow key={c.id}><TableCell className="pl-5 font-medium">{c.nombre}</TableCell>
+                            <TableCell><Badge variant="outline">{c.tipo || "General"}</Badge></TableCell>
+                            <TableCell className="text-right pr-5 font-mono font-bold text-blue-600 dark:text-blue-400">{fmtGs(Number(c.saldo_inicial))}</TableCell></TableRow>)}
+                        {/* Fila de total efectivo */}
+                        {saldos.filter((c: any) => c.es_efectivo !== false).length > 0 && (
+                            <TableRow className="bg-muted/10 border-t-2">
+                                <TableCell className="pl-5 font-bold">Total Efectivo</TableCell>
+                                <TableCell></TableCell>
+                                <TableCell className="text-right pr-5 font-mono font-bold text-blue-600 dark:text-blue-400">
+                                    {fmtGs(saldos.filter((c: any) => c.es_efectivo !== false).reduce((sum: number, c: any) => sum + Number(c.saldo_inicial), 0))}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                        {/* Donaciones en Especie — solo informativo */}
+                        {saldos.filter((c: any) => c.es_efectivo === false).length > 0 && <>
+                            <TableRow className="bg-amber-50/50 dark:bg-amber-950/20">
+                                <TableCell colSpan={3} className="pl-5 py-2 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                                    📦 Donaciones en Especie (informativo, no es efectivo disponible)
+                                </TableCell>
+                            </TableRow>
+                            {saldos.filter((c: any) => c.es_efectivo === false).map(c => <TableRow key={c.id} className="bg-amber-50/30 dark:bg-amber-950/10">
+                                <TableCell className="pl-5 font-medium text-amber-800 dark:text-amber-300">{c.nombre}</TableCell>
+                                <TableCell><Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100 text-[10px]">Especie</Badge></TableCell>
+                                <TableCell className="text-right pr-5 font-mono text-amber-700 dark:text-amber-400">{fmtGs(Number(c.saldo_inicial))}</TableCell>
+                            </TableRow>)}
+                        </>}
+                    </>}
                 </TableBody></Table></CardContent></Card>
+
         </div>
     );
 }

@@ -123,7 +123,7 @@ export default async function DashboardPage() {
                     <CardContent>
                         <ScrollArea className="h-[300px] pr-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {cuentas.map((cuenta) => (
+                                {cuentas.filter((c: any) => c.es_efectivo !== false).map((cuenta: any) => (
                                     <div 
                                         key={cuenta.id} 
                                         className="flex flex-col p-3 rounded-lg border bg-card/50 hover:bg-card transition-colors space-y-2"
@@ -143,15 +143,48 @@ export default async function DashboardPage() {
                                         </div>
                                     </div>
                                 ))}
-                                {cuentas.length === 0 && (
+                                {cuentas.filter((c: any) => c.es_efectivo !== false).length === 0 && (
                                     <p className="text-sm text-muted-foreground text-center py-8 col-span-full">
                                         No hay cuentas con saldo positivo.
                                     </p>
                                 )}
                             </div>
+
+                            {/* Sección informativa: Donaciones en Especie */}
+                            {cuentas.filter((c: any) => c.es_efectivo === false).length > 0 && (
+                                <div className="mt-4 border-t pt-3">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1">
+                                        <span>📦</span>
+                                        Donaciones en Especie (informativo, no es efectivo disponible)
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {cuentas.filter((c: any) => c.es_efectivo === false).map((cuenta: any) => (
+                                            <div
+                                                key={cuenta.id}
+                                                className="flex flex-col p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 space-y-1"
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <p className="text-xs font-semibold leading-none truncate text-amber-800 dark:text-amber-300">{cuenta.nombre}</p>
+                                                    <Badge className="text-[9px] uppercase font-semibold h-4 px-1 shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100">
+                                                        Especie
+                                                    </Badge>
+                                                </div>
+                                                <div className="text-right">
+                                                    <Currency 
+                                                        amount={cuenta.saldo_calculado} 
+                                                        size="sm" 
+                                                        color="default"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </ScrollArea>
                     </CardContent>
                 </Card>
+
             </div>
 
             {/* SECCIÓN C: Presupuestos */}
